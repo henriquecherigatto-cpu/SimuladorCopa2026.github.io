@@ -34,6 +34,12 @@ function showToast(msg) {
 // ── GROUP STAGE ────────────────────────────────────────────────────────
 function renderGroups() {
   const container = document.getElementById("groupsContainer");
+  if (!container) {
+    console.error("groupsContainer not found!");
+    return;
+  }
+
+  console.log("Container found, starting render. Initial HTML length:", container.innerHTML.length);
   container.innerHTML = "";
 
   GROUPS.forEach(g => {
@@ -42,24 +48,26 @@ function renderGroups() {
     const card = document.createElement("div");
     card.className = "group-card";
 
+    const teamsHTML = teams.map(team => {
+      let badge = "";
+      if (sel.first === team.id) badge = `<span class="rank-badge first">${t("group1st")}</span>`;
+      else if (sel.second === team.id) badge = `<span class="rank-badge second">${t("group2nd")}</span>`;
+      else if (sel.third === team.id) badge = `<span class="rank-badge third">${t("group3rd")}</span>`;
+      const isSelected = sel.first === team.id || sel.second === team.id || sel.third === team.id;
+      return `
+        <div class="team-row ${isSelected ? "selected" : ""}" data-group="${g}" data-team="${team.id}" role="button" tabindex="0">
+          <img src="${flagUrl(team.id)}" alt="${teamName(team.id)}" class="flag-img" onerror="this.style.display='none'">
+          <span class="team-name">${team.names[currentLang] || team.names.en}</span>
+          ${badge}
+        </div>`;
+    }).join("");
+
     card.innerHTML = `
       <div class="group-header">
         <span class="group-badge">${t("groupLabel")} ${g}</span>
       </div>
       <div class="group-teams">
-        ${teams.map(team => {
-          let badge = "";
-          if (sel.first === team.id) badge = `<span class="rank-badge first">${t("group1st")}</span>`;
-          else if (sel.second === team.id) badge = `<span class="rank-badge second">${t("group2nd")}</span>`;
-          else if (sel.third === team.id) badge = `<span class="rank-badge third">${t("group3rd")}</span>`;
-          const isSelected = sel.first === team.id || sel.second === team.id || sel.third === team.id;
-          return `
-            <div class="team-row ${isSelected ? "selected" : ""}" data-group="${g}" data-team="${team.id}" role="button" tabindex="0">
-              <img src="${flagUrl(team.id)}" alt="${teamName(team.id)}" class="flag-img" onerror="this.style.display='none'">
-              <span class="team-name">${team.names[currentLang] || team.names.en}</span>
-              ${badge}
-            </div>`;
-        }).join("")}
+        ${teamsHTML}
       </div>`;
 
     card.querySelectorAll(".team-row").forEach(row => {
@@ -390,39 +398,43 @@ function rerenderCurrentStage() {
 
 // ── INIT ───────────────────────────────────────────────────────────────
 document.addEventListener("DOMContentLoaded", () => {
-  setLang(currentLang);
-  renderGroups();
+  try {
+    setLang(currentLang);
+    renderGroups();
 
-  document.querySelectorAll(".stage-tab").forEach(tab => {
-    tab.addEventListener("click", () => {
-      const stage = tab.dataset.stage;
-      const order = ["guide", "groups", "bestthird", "round32", "round16", "quarters", "semis", "final"];
-      const targetIdx = order.indexOf(stage);
-      const currentIdx = order.indexOf(state.currentStage);
-      if (targetIdx <= currentIdx) showStage(stage);
+    document.querySelectorAll(".stage-tab").forEach(tab => {
+      tab.addEventListener("click", () => {
+        const stage = tab.dataset.stage;
+        const order = ["guide", "groups", "bestthird", "round32", "round16", "quarters", "semis", "final"];
+        const targetIdx = order.indexOf(stage);
+        const currentIdx = order.indexOf(state.currentStage);
+        if (targetIdx <= currentIdx) showStage(stage);
+      });
     });
-  });
 
-  document.getElementById("btnStartGuide").addEventListener("click", () => showStage("groups"));
-  document.getElementById("btnGroupsNext").addEventListener("click", goBestThird);
-  document.getElementById("btnBestThirdNext").addEventListener("click", goToR32);
-  document.getElementById("btnR32Next").addEventListener("click", goToR16);
-  document.getElementById("btnR16Next").addEventListener("click", goToQF);
-  document.getElementById("btnQFNext").addEventListener("click", goToSF);
-  document.getElementById("btnSFNext").addEventListener("click", goToFinal);
-  document.getElementById("btnReset").addEventListener("click", resetSimulation);
+    document.getElementById("btnStartGuide").addEventListener("click", () => showStage("groups"));
+    document.getElementById("btnGroupsNext").addEventListener("click", goBestThird);
+    document.getElementById("btnBestThirdNext").addEventListener("click", goToR32);
+    document.getElementById("btnR32Next").addEventListener("click", goToR16);
+    document.getElementById("btnR16Next").addEventListener("click", goToQF);
+    document.getElementById("btnQFNext").addEventListener("click", goToSF);
+    document.getElementById("btnSFNext").addEventListener("click", goToFinal);
+    document.getElementById("btnReset").addEventListener("click", resetSimulation);
 
-  const langBtn = document.getElementById("langBtn");
-  const dropdown = document.getElementById("langDropdown");
-  langBtn.addEventListener("click", (e) => {
-    e.stopPropagation();
-    dropdown.classList.toggle("open");
-  });
-  document.addEventListener("click", () => dropdown.classList.remove("open"));
-  dropdown.querySelectorAll("button[data-lang]").forEach(btn => {
-    btn.addEventListener("click", () => {
-      setLang(btn.dataset.lang);
-      dropdown.classList.remove("open");
+    const langBtn = document.getElementById("langBtn");
+    const dropdown = document.getElementById("langDropdown");
+    langBtn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      dropdown.classList.toggle("open");
     });
-  });
+    document.addEventListener("click", () => dropdown.classList.remove("open"));
+    dropdown.querySelectorAll("button[data-lang]").forEach(btn => {
+      btn.addEventListener("click", () => {
+        setLang(btn.dataset.lang);
+        dropdown.classList.remove("open");
+      });
+    });
+  } catch (error) {
+    console.error("Error during initialization:", error);
+  }
 });

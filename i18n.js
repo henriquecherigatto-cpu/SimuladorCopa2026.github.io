@@ -1594,7 +1594,7 @@ const TRANSLATIONS = {
     termsIPText: "2026世界杯模拟器上的所有内容均受国际版权法保护。",
     termsIPUseText: "未经我们的允许，您不能复制、分发或传输任何内容。",
     termsDisclaimer: "免责声明",
-    termsDisclaimerText: "本网站按"现状"提供，无任何陈述或保证。",
+    termsDisclaimerText: "本网站按\"现状\"提供，无任何陈述或保证。",
     termsAccuracyText: "我们对完整性或准确性不作任何陈述或保证。",
     termsLiability: "责任限制",
     termsLiabilityText: "2026世界杯模拟器对任何间接或后果性损失概不负责。",
