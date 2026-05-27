@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title data-i18n="siteTitle">World Cup 2026 Simulator</title>
+  <meta name="description" content="Simulate all World Cup 2026 results! Pick winners for every match, from group stage to the final.">
+  <link rel="stylesheet" href="style.css" />
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700;900&display=swap" rel="stylesheet">
+  <!-- Google AdSense — uncomment and replace with your publisher ID -->
+  <!-- <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-XXXXXXXXXXXXXXXX" crossorigin="anonymous"></script> -->
+</head>
+<body>
+
+  <!-- HEADER -->
+  <header class="site-header">
+    <div class="header-content">
+      <div class="logo">
+        <span class="trophy">🏆</span>
+        <div class="logo-text">
+          <span class="logo-main" data-i18n="logoMain">World Cup</span>
+          <span class="logo-sub">2026</span>
+        </div>
+      </div>
+      <div class="header-actions">
+        <button class="btn-reset" id="btnReset" data-i18n="btnReset">↺ Reset</button>
+        <div class="lang-selector">
+          <button class="lang-btn" id="langBtn">🌐 <span id="langLabel">EN</span></button>
+          <div class="lang-dropdown" id="langDropdown">
+            <button data-lang="en">🇺🇸 English</button>
+            <button data-lang="pt">🇧🇷 Português</button>
+            <button data-lang="es">🇪🇸 Español</button>
+            <button data-lang="fr">🇫🇷 Français</button>
+            <button data-lang="de">🇩🇪 Deutsch</button>
+            <button data-lang="ar">🇸🇦 العربية</button>
+            <button data-lang="ja">🇯🇵 日本語</button>
+            <button data-lang="zh">🇨🇳 中文</button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <!-- AdSense Banner Top -->
+    <div class="ad-banner ad-top">
+      <div class="ad-placeholder"><span data-i18n="adLabel">Advertisement</span></div>
+      <!-- <ins class="adsbygoogle" style="display:block" data-ad-client="ca-pub-XXXXXXXXXXXXXXXX" data-ad-slot="XXXXXXXXXX" data-ad-format="auto" data-full-width-responsive="true"></ins> -->
+    </div>
+  </header>
+
+  <!-- STAGE TABS -->
+  <nav class="stage-nav" id="stageNav">
+    <button class="stage-tab" data-stage="guide" data-i18n="tabGuide">📖 Guide</button>
+    <button class="stage-tab active" data-stage="groups"    data-i18n="tabGroups">Group Stage</button>
+    <button class="stage-tab"        data-stage="bestthird" data-i18n="tabBestThird">Best 3rd Place</button>
+    <button class="stage-tab"        data-stage="round32"   data-i18n="tabR32">Round of 32</button>
+    <button class="stage-tab"        data-stage="round16"   data-i18n="tabR16">Round of 16</button>
+    <button class="stage-tab"        data-stage="quarters"  data-i18n="tabQF">Quarterfinals</button>
+    <button class="stage-tab"        data-stage="semis"     data-i18n="tabSF">Semifinals</button>
+    <button class="stage-tab"        data-stage="final"     data-i18n="tabFinal">Final</button>
+  </nav>
+
+  <!-- MAIN -->
+  <main class="main-content">
+
+    <!-- GUIDE -->
+    <section id="stage-guide" class="stage-section">
+      <h2 class="stage-title" data-i18n="guideTitle">📖 How to Simulate</h2>
+      <div class="guide-content">
+        <div class="guide-step">
+          <div class="step-number">1</div>
+          <div class="step-content">
+            <h3 data-i18n="guideStep1Title">Group Stage</h3>
+            <p data-i18n="guideStep1Desc">Click on 3 teams from each group to select: 1st place (gold), 2nd place (silver), and 3rd place (bronze). You must select at least 1st and 2nd from all 12 groups to advance.</p>
+          </div>
+        </div>
+
+        <div class="guide-step">
+          <div class="step-number">2</div>
+          <div class="step-content">
+            <h3 data-i18n="guideStep2Title">Best 3rd Place</h3>
+            <p data-i18n="guideStep2Desc">After groups, select exactly 8 of the 12 third-place teams. These 8 teams will fill the remaining 8 spots to make 32 teams total for Round of 32.</p>
+          </div>
+        </div>
+
+        <div class="guide-step">
+          <div class="step-number">3</div>
+          <div class="step-content">
+            <h3 data-i18n="guideStep3Title">Knockout Rounds</h3>
+            <p data-i18n="guideStep3Desc">Round of 32 → Round of 16 → Quarterfinals → Semifinals → Final. For each match, click on the team you think will win. Winners advance to the next round.</p>
+          </div>
+        </div>
+
+        <div class="guide-step">
+          <div class="step-number">4</div>
+          <div class="step-content">
+            <h3 data-i18n="guideStep4Title">Champion!</h3>
+            <p data-i18n="guideStep4Desc">After the Final, see your simulated World Cup champion! You can share the result or start a new simulation.</p>
+          </div>
+        </div>
+
+        <div class="guide-tips">
+          <h3 data-i18n="guideTips">💡 Tips</h3>
+          <ul>
+            <li data-i18n="guideTip1">Click team flags and names to select them</li>
+            <li data-i18n="guideTip2">You can go back to previous stages using the navigation tabs</li>
+            <li data-i18n="guideTip3">Use the Reset button to start over anytime</li>
+            <li data-i18n="guideTip4">Change language anytime with the language selector</li>
+          </ul>
+        </div>
+
+        <div class="guide-action">
+          <button class="btn-start" id="btnStartGuide" data-i18n="btnStartSimulation">Start Simulation →</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- GROUP STAGE -->
+    <section id="stage-groups" class="stage-section active">
+      <h2 class="stage-title" data-i18n="groupStageTitle">⚽ Group Stage</h2>
+      <p class="stage-desc" data-i18n="groupStageDesc">Select 1st, 2nd and 3rd place for each group.</p>
+      <div id="groupsContainer" class="groups-grid"></div>
+      <div class="stage-action">
+        <button class="btn-next" id="btnGroupsNext" data-i18n="btnAdvanceBestThird">Advance to Best 3rd Place →</button>
+      </div>
+    </section>
+
+    <!-- BEST 3RD PLACE -->
+    <section id="stage-bestthird" class="stage-section">
+      <h2 class="stage-title" data-i18n="bestThirdTitle">🥉 Best 3rd Place Teams</h2>
+      <p class="stage-desc" data-i18n="bestThirdDesc">Select exactly 8 of the 12 third-place teams to advance to the Round of 32.</p>
+      <div class="best-third-counter">
+        <span data-i18n="selectedLabel">Selected</span>: <strong id="bestThirdCount">0</strong>/8
+      </div>
+      <div id="bestThirdContainer" class="best-third-grid"></div>
+      <div class="stage-action">
+        <button class="btn-next" id="btnBestThirdNext" data-i18n="btnAdvanceR32">Advance to Round of 32 →</button>
+      </div>
+    </section>
+
+    <!-- ROUND OF 32 -->
+    <section id="stage-round32" class="stage-section">
+      <h2 class="stage-title" data-i18n="r32Title">🏟️ Round of 32</h2>
+      <p class="stage-desc" data-i18n="r32Desc">Click on the team that wins each match.</p>
+      <div id="round32Container" class="bracket-container"></div>
+      <div class="stage-action">
+        <button class="btn-next" id="btnR32Next" data-i18n="btnAdvanceR16">Advance to Round of 16 →</button>
+      </div>
+    </section>
+
+    <!-- ROUND OF 16 -->
+    <section id="stage-round16" class="stage-section">
+      <h2 class="stage-title" data-i18n="r16Title">🔥 Round of 16</h2>
+      <p class="stage-desc" data-i18n="r16Desc">Click on the team that wins each match.</p>
+      <div id="round16Container" class="bracket-container"></div>
+      <div class="stage-action">
+        <button class="btn-next" id="btnR16Next" data-i18n="btnAdvanceQF">Advance to Quarterfinals →</button>
+      </div>
+    </section>
+
+    <!-- QUARTERFINALS -->
+    <section id="stage-quarters" class="stage-section">
+      <h2 class="stage-title" data-i18n="qfTitle">⚡ Quarterfinals</h2>
+      <p class="stage-desc" data-i18n="qfDesc">Click on the team that wins each match.</p>
+      <div id="quartersContainer" class="bracket-container"></div>
+      <div class="stage-action">
+        <button class="btn-next" id="btnQFNext" data-i18n="btnAdvanceSF">Advance to Semifinals →</button>
+      </div>
+    </section>
+
+    <!-- SEMIFINALS -->
+    <section id="stage-semis" class="stage-section">
+      <h2 class="stage-title" data-i18n="sfTitle">🌟 Semifinals</h2>
+      <p class="stage-desc" data-i18n="sfDesc">Click on the team that wins each match.</p>
+      <div id="semisContainer" class="bracket-container"></div>
+      <div class="stage-action">
+        <button class="btn-next" id="btnSFNext" data-i18n="btnAdvanceFinal">Advance to the Final →</button>
+      </div>
+    </section>
+
+    <!-- FINAL -->
+    <section id="stage-final" class="stage-section">
+      <h2 class="stage-title" data-i18n="finalTitle">🏆 The Grand Final</h2>
+      <p class="stage-desc" data-i18n="finalDesc">Who will be the World Champion?</p>
+      <div id="finalContainer" class="bracket-container final-bracket"></div>
+      <div id="championDisplay" class="champion-display hidden"></div>
+    </section>
+
+  </main>
+
+  <!-- AdSense Bottom Banner -->
+  <div class="ad-banner ad-bottom">
+    <div class="ad-placeholder"><span data-i18n="adLabel">Advertisement</span></div>
+  </div>
+
+  <!-- FOOTER -->
+  <footer class="site-footer">
+    <p data-i18n="footerText">World Cup 2026 Simulator — For entertainment purposes only.</p>
+    <p class="footer-sub">© 2026</p>
+  </footer>
+
+  <!-- TOAST -->
+  <div class="toast" id="toast"></div>
+
+  <script src="teams.js"></script>
+  <script src="i18n.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
