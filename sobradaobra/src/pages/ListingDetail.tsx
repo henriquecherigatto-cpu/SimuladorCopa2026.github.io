@@ -3,22 +3,29 @@ import { useParams, Link, useNavigate } from 'react-router-dom'
 import { MapPin, Clock, Eye, MessageCircle, Share2, Flag, ChevronLeft, ChevronRight, Star } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../hooks/useAuth'
+import { useToast } from '../components/ui/Toast'
 import type { Listing } from '../types'
 import { Layout } from '../components/layout/Layout'
 import { Button } from '../components/ui/Button'
 import { Badge } from '../components/ui/Badge'
 import { Avatar } from '../components/ui/Avatar'
 import { Spinner } from '../components/ui/Spinner'
+import { ConfirmModal } from '../components/ui/Modal'
+import { ReviewModal } from '../components/listings/ReviewModal'
 import { formatarPreco, formatarDataRelativa, ESTADO_MATERIAL_LABELS, TIPO_NEGOCIACAO_LABELS } from '../lib/utils'
 
 export function ListingDetail() {
   const { id } = useParams<{ id: string }>()
   const { user } = useAuth()
   const navigate = useNavigate()
+  const { success, info } = useToast()
+
   const [listing, setListing] = useState<Listing | null>(null)
   const [loading, setLoading] = useState(true)
   const [fotoAtual, setFotoAtual] = useState(0)
+  const [confirmVendido, setConfirmVendido] = useState(false)
   const [marcandoVendido, setMarcandoVendido] = useState(false)
+  const [showReview, setShowReview] = useState(false)
 
   useEffect(() => {
     async function carregar() {
@@ -38,9 +45,11 @@ export function ListingDetail() {
 
   async function marcarVendido() {
     setMarcandoVendido(true)
-    await supabase.from('listings').update({ vendido: true }).eq('id', id!)
-    setListing(prev => prev ? { ...prev, vendido: true } : prev)
+    await supabase.from('listings').update({ vendido: true, ativo: false }).eq('id', id!)
+    setListing(prev => prev ? { ...prev, vendido: true, ativo: false } : prev)
     setMarcandoVendido(false)
+    setConfirmVendido(false)
+    success('Parabéns pela venda! 🎉')
   }
 
   async function compartilhar() {
@@ -49,6 +58,7 @@ export function ListingDetail() {
       await navigator.share({ title: listing?.titulo, url })
     } else {
       await navigator.clipboard.writeText(url)
+      info('Link copiado!')
     }
   }
 
@@ -78,15 +88,11 @@ export function ListingDetail() {
   return (
     <Layout noPadding>
       <div className="max-w-4xl mx-auto">
-        {/* Galeria de fotos */}
+        {/* Galeria */}
         <div className="relative bg-concreto-100 aspect-[4/3] md:aspect-[16/9] md:rounded-2xl md:mx-4 md:mt-4 overflow-hidden">
           {fotos.length > 0 ? (
             <>
-              <img
-                src={fotos[fotoAtual]?.url}
-                alt={listing.titulo}
-                className="w-full h-full object-cover"
-              />
+              <img src={fotos[fotoAtual]?.url} alt={listing.titulo} className="w-full h-full object-cover" />
               {fotos.length > 1 && (
                 <>
                   <button onClick={() => setFotoAtual(i => (i - 1 + fotos.length) % fotos.length)} className="absolute left-2 top-1/2 -translate-y-1/2 bg-black/40 text-white rounded-full p-2">
@@ -154,7 +160,7 @@ export function ListingDetail() {
               </div>
             )}
 
-            {/* Miniaturas de fotos */}
+            {/* Miniaturas */}
             {fotos.length > 1 && (
               <div className="flex gap-2 flex-wrap">
                 {fotos.map((f, i) => (
@@ -166,7 +172,7 @@ export function ListingDetail() {
             )}
           </div>
 
-          {/* Sidebar — vendedor e contato */}
+          {/* Sidebar */}
           <div className="space-y-3">
             {vendedor && (
               <div className="bg-white border border-concreto-100 rounded-2xl p-4">
@@ -191,7 +197,7 @@ export function ListingDetail() {
               <div className="space-y-2">
                 {whatsappLink && (
                   <a href={whatsappLink} target="_blank" rel="noopener noreferrer">
-                    <Button fullWidth size="lg" className="bg-green-500 hover:bg-green-600">
+                    <Button fullWidth size="lg" className="bg-green-500 hover:bg-green-600 w-full">
                       💬 Chamar no WhatsApp
                     </Button>
                   </a>
@@ -200,6 +206,12 @@ export function ListingDetail() {
                   <MessageCircle size={18} />
                   Enviar mensagem
                 </Button>
+                {user && vendedor && (
+                  <Button variant="ghost" fullWidth size="sm" onClick={() => setShowReview(true)}>
+                    <Star size={15} />
+                    Avaliar vendedor
+                  </Button>
+                )}
               </div>
             )}
 
@@ -209,7 +221,7 @@ export function ListingDetail() {
                   <Button variant="outline" fullWidth>Editar anúncio</Button>
                 </Link>
                 {!listing.vendido && (
-                  <Button variant="secondary" fullWidth onClick={marcarVendido} loading={marcandoVendido}>
+                  <Button variant="secondary" fullWidth onClick={() => setConfirmVendido(true)}>
                     Marcar como vendido
                   </Button>
                 )}
@@ -231,6 +243,25 @@ export function ListingDetail() {
           </div>
         </div>
       </div>
+
+      <ConfirmModal
+        open={confirmVendido}
+        onClose={() => setConfirmVendido(false)}
+        onConfirm={marcarVendido}
+        title="Marcar como vendido?"
+        message="O anúncio será arquivado e não aparecerá mais nas buscas."
+        confirmLabel="Sim, foi vendido! 🎉"
+        loading={marcandoVendido}
+      />
+
+      {vendedor && (
+        <ReviewModal
+          open={showReview}
+          onClose={() => setShowReview(false)}
+          avaliado={vendedor}
+          listingId={id!}
+        />
+      )}
     </Layout>
   )
 }

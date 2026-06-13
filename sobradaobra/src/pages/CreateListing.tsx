@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { Upload, X, MapPin } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../hooks/useAuth'
+import { useToast } from '../components/ui/Toast'
 import { buscarCep, formatarCep } from '../lib/viacep'
 import { UNIDADES, ESTADOS_UF } from '../lib/utils'
 import type { Category } from '../types'
@@ -27,6 +28,7 @@ const TIPOS_NEGOCIACAO = [
 export function CreateListing() {
   const { user } = useAuth()
   const navigate = useNavigate()
+  const { error: toastError } = useToast()
 
   const [categorias, setCategorias] = useState<Category[]>([])
   const [imagens, setImagens] = useState<File[]>([])
@@ -126,7 +128,7 @@ export function CreateListing() {
 
       navigate(`/anuncio/${listing.id}`)
     } catch (err) {
-      setErro('Erro ao criar anúncio. Tente novamente.')
+      toastError('Erro ao criar anúncio. Tente novamente.')
       console.error(err)
     } finally {
       setLoading(false)

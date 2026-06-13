@@ -5,7 +5,7 @@ import { supabase } from '../lib/supabase'
 import type { Category, Listing } from '../types'
 import { Layout } from '../components/layout/Layout'
 import { ListingCard } from '../components/listings/ListingCard'
-import { Spinner } from '../components/ui/Spinner'
+import { ListingCardSkeleton } from '../components/ui/Skeleton'
 
 export function Home() {
   const [busca, setBusca] = useState('')
@@ -80,7 +80,14 @@ export function Home() {
             <h2 className="text-lg font-semibold text-concreto-800">Categorias</h2>
           </div>
           {loading ? (
-            <div className="flex justify-center py-8"><Spinner className="text-terracota-400" /></div>
+            <div className="grid grid-cols-4 md:grid-cols-6 lg:grid-cols-12 gap-2">
+              {Array.from({ length: 12 }).map((_, i) => (
+                <div key={i} className="bg-white rounded-2xl border border-concreto-100 p-3 animate-pulse">
+                  <div className="h-8 w-8 rounded-full bg-concreto-100 mx-auto mb-1.5" />
+                  <div className="h-3 bg-concreto-100 rounded mx-auto w-3/4" />
+                </div>
+              ))}
+            </div>
           ) : (
             <div className="grid grid-cols-4 md:grid-cols-6 lg:grid-cols-12 gap-2">
               {categorias.map(cat => (
@@ -121,7 +128,9 @@ export function Home() {
             </Link>
           </div>
           {loading ? (
-            <div className="flex justify-center py-8"><Spinner className="text-terracota-400" /></div>
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+              {Array.from({ length: 8 }).map((_, i) => <ListingCardSkeleton key={i} />)}
+            </div>
           ) : recentes.length === 0 ? (
             <div className="text-center py-12">
               <div className="text-4xl mb-3">📦</div>

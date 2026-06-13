@@ -2,11 +2,13 @@ import { useState } from 'react'
 import { Link, useNavigate, useLocation } from 'react-router-dom'
 import { Mail, Lock, Eye, EyeOff } from 'lucide-react'
 import { useAuth } from '../hooks/useAuth'
+import { useToast } from '../components/ui/Toast'
 import { Button } from '../components/ui/Button'
 import { Input } from '../components/ui/Input'
 
 export function Login() {
   const { signIn, signInWithGoogle } = useAuth()
+  const { success } = useToast()
   const navigate = useNavigate()
   const location = useLocation()
   const from = (location.state as { from?: { pathname: string } })?.from?.pathname || '/'
@@ -27,6 +29,7 @@ export function Login() {
     if (error) {
       setErro(traduzirErro(error.message))
     } else {
+      success('Login realizado com sucesso!')
       navigate(from, { replace: true })
     }
   }
