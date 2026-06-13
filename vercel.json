@@ -1,0 +1,5 @@
+{
+  "buildCommand": "cd sobradaobra && npm install && npm run build",
+  "outputDirectory": "sobradaobra/dist",
+  "installCommand": "echo 'skip'"
+}
