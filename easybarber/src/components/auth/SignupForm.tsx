@@ -9,6 +9,7 @@ import { Building2, Lock, Mail, MapPin, Phone, User } from "lucide-react";
 import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
 import { Alert } from "@/components/ui/Alert";
+import { createClient } from "@/lib/supabase/client";
 
 const signupSchema = z
   .object({
@@ -36,12 +37,65 @@ export function SignupForm() {
   } = useForm<SignupValues>({ resolver: zodResolver(signupSchema) });
 
   const [success, setSuccess] = React.useState(false);
+  const [pendingConfirmation, setPendingConfirmation] = React.useState(false);
+  const [serverError, setServerError] = React.useState<string | null>(null);
 
-  const onSubmit = async () => {
-    await new Promise((resolve) => setTimeout(resolve, 900));
+  const onSubmit = async (values: SignupValues) => {
+    setServerError(null);
+    const supabase = createClient();
+
+    const { data, error } = await supabase.auth.signUp({
+      email: values.email,
+      password: values.password,
+      options: { data: { full_name: values.ownerName } },
+    });
+
+    if (error) {
+      setServerError(error.message);
+      return;
+    }
+
+    if (!data.session) {
+      // E-mail confirmation is required by the Supabase project's
+      // auth settings — the user isn't signed in yet, so we can't
+      // call create_company_with_owner() (it needs auth.uid()). The
+      // barbearia is created on their first real login instead — see
+      // src/app/onboarding/empresa.
+      setPendingConfirmation(true);
+      return;
+    }
+
+    const { error: rpcError } = await supabase.rpc(
+      "create_company_with_owner",
+      {
+        p_name: values.companyName,
+        p_phone: values.phone,
+        p_address: values.address || undefined,
+      },
+    );
+
+    if (rpcError) {
+      setServerError(
+        `Sua conta foi criada, mas não foi possível criar a barbearia automaticamente (${rpcError.message}). Você pode concluir isso ao entrar.`,
+      );
+      return;
+    }
+
     setSuccess(true);
-    setTimeout(() => router.push("/dashboard"), 1200);
+    setTimeout(() => {
+      router.push("/dashboard");
+      router.refresh();
+    }, 1200);
   };
+
+  if (pendingConfirmation) {
+    return (
+      <Alert variant="info" title="Confirme seu e-mail">
+        Enviamos um link de confirmação para o seu e-mail. Depois de
+        confirmar, faça login para concluir o cadastro da sua barbearia.
+      </Alert>
+    );
+  }
 
   if (success) {
     return (
@@ -53,6 +107,8 @@ export function SignupForm() {
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4" noValidate>
+      {serverError && <Alert variant="error">{serverError}</Alert>}
+
       <Input
         label="Nome da barbearia"
         placeholder="Ex: Barber 013"

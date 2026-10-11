@@ -9,6 +9,7 @@ import { Mail, Lock } from "lucide-react";
 import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
 import { Alert } from "@/components/ui/Alert";
+import { createClient } from "@/lib/supabase/client";
 
 const loginSchema = z.object({
   email: z.string().min(1, "Informe seu e-mail").email("E-mail inválido"),
@@ -26,21 +27,28 @@ export function LoginForm() {
     formState: { errors, isSubmitting },
   } = useForm<LoginValues>({
     resolver: zodResolver(loginSchema),
-    defaultValues: { email: "carlos@barber013.com.br", password: "" },
   });
 
   const onSubmit = async (values: LoginValues) => {
     setServerError(null);
-    await new Promise((resolve) => setTimeout(resolve, 700));
 
-    if (values.password.length < 4) {
+    const supabase = createClient();
+    const { error } = await supabase.auth.signInWithPassword({
+      email: values.email,
+      password: values.password,
+    });
+
+    if (error) {
       setServerError(
-        "E-mail ou senha incorretos. Verifique os dados e tente novamente.",
+        error.message === "Invalid login credentials"
+          ? "E-mail ou senha incorretos. Verifique os dados e tente novamente."
+          : error.message,
       );
       return;
     }
 
     router.push("/dashboard");
+    router.refresh();
   };
 
   return (
@@ -76,11 +84,6 @@ export function LoginForm() {
       <Button type="submit" fullWidth loading={isSubmitting}>
         Entrar
       </Button>
-
-      <p className="text-center text-xs text-brand-graphite/50">
-        Dica de demonstração: use qualquer e-mail e uma senha com 4+
-        caracteres para entrar.
-      </p>
     </form>
   );
 }

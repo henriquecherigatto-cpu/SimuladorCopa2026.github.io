@@ -3,9 +3,8 @@ import { Bell } from "lucide-react";
 import { Logo } from "@/components/Logo";
 import { Avatar } from "@/components/ui/Avatar";
 import { DemoTag } from "@/components/ui/DemoBanner";
-import { demoUser } from "@/lib/mock-data";
 
-export function TopBar() {
+export function TopBar({ userName }: { userName: string }) {
   return (
     <header className="sticky top-0 z-20 flex h-16 items-center justify-between gap-3 border-b border-black/5 bg-white/90 px-4 backdrop-blur sm:px-6">
       <div className="lg:hidden">
@@ -26,7 +25,7 @@ export function TopBar() {
           <span className="absolute right-2.5 top-2.5 size-2 rounded-full bg-brand-orange" />
         </button>
         <Link href="/configuracoes" className="hidden sm:block">
-          <Avatar name={demoUser.name} size="sm" />
+          <Avatar name={userName} size="sm" />
         </Link>
       </div>
     </header>

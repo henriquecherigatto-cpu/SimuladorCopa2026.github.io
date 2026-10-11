@@ -3,19 +3,29 @@
 import Link from "next/link";
 import { LogOut, X } from "lucide-react";
 import { Avatar } from "@/components/ui/Avatar";
+import { SignOutButton } from "@/components/auth/SignOutButton";
 import { adminNav, primaryNav, secondaryNav } from "@/lib/nav";
-import { demoUser } from "@/lib/mock-data";
 
 export function MoreSheet({
   open,
   onClose,
+  userName,
+  roleLabel,
+  isPlatformAdmin,
 }: {
   open: boolean;
   onClose: () => void;
+  userName: string;
+  roleLabel: string;
+  isPlatformAdmin: boolean;
 }) {
   if (!open) return null;
 
-  const items = [...primaryNav, ...secondaryNav, ...adminNav];
+  const items = [
+    ...primaryNav,
+    ...secondaryNav,
+    ...(isPlatformAdmin ? adminNav : []),
+  ];
 
   return (
     <div className="fixed inset-0 z-40 lg:hidden">
@@ -23,14 +33,12 @@ export function MoreSheet({
       <div className="absolute inset-x-0 bottom-0 max-h-[80vh] overflow-y-auto rounded-t-2xl bg-white p-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
         <div className="mb-3 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <Avatar name={demoUser.name} size="sm" />
+            <Avatar name={userName} size="sm" />
             <div className="flex flex-col">
               <span className="text-sm font-medium text-brand-graphite">
-                {demoUser.name}
+                {userName}
               </span>
-              <span className="text-xs text-brand-graphite/50">
-                Proprietário
-              </span>
+              <span className="text-xs text-brand-graphite/50">{roleLabel}</span>
             </div>
           </div>
           <button
@@ -56,14 +64,10 @@ export function MoreSheet({
               </Link>
             );
           })}
-          <Link
-            href="/login"
-            onClick={onClose}
-            className="flex items-center gap-3 rounded-xl px-3 py-3 text-sm font-medium text-brand-error hover:bg-red-50"
-          >
+          <SignOutButton className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-sm font-medium text-brand-error hover:bg-red-50">
             <LogOut className="size-[18px]" />
             Sair
-          </Link>
+          </SignOutButton>
         </div>
       </div>
     </div>

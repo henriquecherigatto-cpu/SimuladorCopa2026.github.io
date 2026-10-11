@@ -2,7 +2,6 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { Logo } from "@/components/Logo";
 import { LoginForm } from "@/components/auth/LoginForm";
-import { DemoTag } from "@/components/ui/DemoBanner";
 
 export const metadata: Metadata = { title: "Entrar — Easy Barber" };
 
@@ -17,10 +16,7 @@ export default function LoginPage() {
       </div>
 
       <div className="rounded-2xl border border-black/5 bg-white p-6 shadow-sm sm:p-7">
-        <div className="mb-5 flex items-center justify-between">
-          <h1 className="text-lg font-bold text-brand-graphite">Entrar</h1>
-          <DemoTag />
-        </div>
+        <h1 className="mb-5 text-lg font-bold text-brand-graphite">Entrar</h1>
         <LoginForm />
       </div>
 
