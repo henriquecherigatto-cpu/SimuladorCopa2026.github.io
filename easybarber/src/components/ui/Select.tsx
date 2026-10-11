@@ -11,7 +11,8 @@ export interface SelectProps
 
 export const Select = React.forwardRef<HTMLSelectElement, SelectProps>(
   ({ label, error, placeholder, className, id, children, ...props }, ref) => {
-    const selectId = id ?? props.name;
+    const generatedId = React.useId();
+    const selectId = id ?? props.name ?? generatedId;
     return (
       <div className="flex flex-col gap-1.5">
         {label && (

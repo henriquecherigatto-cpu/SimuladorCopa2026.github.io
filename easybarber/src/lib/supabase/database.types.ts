@@ -731,9 +731,18 @@ export type Database = {
         Args: { p_address?: string; p_cnpj?: string; p_name: string; p_phone: string };
         Returns: string;
       };
-      dearmor: { Args: { "": string }; Returns: string };
-      gen_random_uuid: { Args: Record<PropertyKey, never>; Returns: string };
-      gen_salt: { Args: { "": string }; Returns: string };
+      get_available_slots: {
+        Args: {
+          p_company_id: string;
+          p_date: string;
+          p_professional_id: string;
+          p_service_id: string;
+          p_step_minutes?: number;
+        };
+        Returns: {
+          slot_start: string;
+        }[];
+      };
       has_company_role: {
         Args: {
           p_company_id: string;
@@ -742,7 +751,6 @@ export type Database = {
         Returns: boolean;
       };
       is_platform_admin: { Args: Record<PropertyKey, never>; Returns: boolean };
-      pgp_armor_headers: { Args: { "": string }; Returns: Record<string, unknown>[] };
       professional_id_for_current_user: { Args: { p_company_id: string }; Returns: string };
       user_company_ids: { Args: Record<PropertyKey, never>; Returns: string[] };
       write_audit_log: {

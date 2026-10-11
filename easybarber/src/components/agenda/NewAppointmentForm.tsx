@@ -10,18 +10,35 @@ import { Alert } from "@/components/ui/Alert";
 import {
   CustomerPicker,
   NewCustomerFields,
+  type CustomerOption,
 } from "@/components/agenda/CustomerPicker";
-import {
-  customers,
-  getServiceById,
-  professionals,
-  services,
-  todayDate,
-} from "@/lib/mock-data";
-import { getAvailableSlots } from "@/lib/scheduling";
+import { createAppointment, fetchAvailableSlots } from "@/lib/actions/appointments";
 import { cn, formatCurrencyBRL, hhmmToMinutes, minutesToHHMM } from "@/lib/utils";
 
-export function NewAppointmentForm() {
+export interface ServiceOption {
+  id: string;
+  name: string;
+  duration_min: number;
+  price_cents: number;
+  active: boolean;
+}
+
+export interface ProfessionalOption {
+  id: string;
+  name: string;
+  active: boolean;
+  professional_services: { service_id: string }[];
+}
+
+export function NewAppointmentForm({
+  services,
+  professionals,
+  customers,
+}: {
+  services: ServiceOption[];
+  professionals: ProfessionalOption[];
+  customers: CustomerOption[];
+}) {
   const [customerMode, setCustomerMode] = React.useState<"existing" | "new">(
     "existing",
   );
@@ -31,18 +48,21 @@ export function NewAppointmentForm() {
 
   const [serviceId, setServiceId] = React.useState("");
   const [professionalIdRaw, setProfessionalIdRaw] = React.useState("");
-  const [date, setDate] = React.useState(format(todayDate, "yyyy-MM-dd"));
+  const [date, setDate] = React.useState(format(new Date(), "yyyy-MM-dd"));
   const [timeRaw, setTime] = React.useState("");
   const [notes, setNotes] = React.useState("");
 
   const [errors, setErrors] = React.useState<Record<string, string>>({});
   const [submitting, setSubmitting] = React.useState(false);
   const [success, setSuccess] = React.useState(false);
+  const [serverError, setServerError] = React.useState<string | null>(null);
 
-  const service = getServiceById(serviceId);
+  const service = services.find((s) => s.id === serviceId);
 
   const eligibleProfessionals = professionals.filter(
-    (p) => p.active && (!serviceId || p.serviceIds.includes(serviceId)),
+    (p) =>
+      p.active &&
+      (!serviceId || p.professional_services.some((ps) => ps.service_id === serviceId)),
   );
 
   // Valores derivados: se o serviço mudar e o profissional selecionado
@@ -51,16 +71,30 @@ export function NewAppointmentForm() {
     ? professionalIdRaw
     : "";
 
-  const availableSlots = React.useMemo(() => {
-    if (!service || !professionalId || !date) return [];
-    return getAvailableSlots(date, professionalId, service.durationMin);
-  }, [service, professionalId, date]);
+  const [availableSlots, setAvailableSlots] = React.useState<string[]>([]);
+  const [loadingSlots, setLoadingSlots] = React.useState(false);
+  const slotsRequestId = React.useRef(0);
+
+  React.useEffect(() => {
+    if (!serviceId || !professionalId || !date) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setAvailableSlots([]);
+      return;
+    }
+    const requestId = ++slotsRequestId.current;
+    setLoadingSlots(true);
+    fetchAvailableSlots({ professionalId, serviceId, date }).then((result) => {
+      if (slotsRequestId.current !== requestId) return; // stale response
+      setLoadingSlots(false);
+      setAvailableSlots(result.ok ? result.data.slots : []);
+    });
+  }, [serviceId, professionalId, date]);
 
   const time = availableSlots.includes(timeRaw) ? timeRaw : "";
 
   const endTime =
     service && time
-      ? minutesToHHMM(hhmmToMinutes(time) + service.durationMin)
+      ? minutesToHHMM(hhmmToMinutes(time) + service.duration_min)
       : null;
 
   const validate = () => {
@@ -83,10 +117,36 @@ export function NewAppointmentForm() {
 
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setServerError(null);
     if (!validate()) return;
     setSubmitting(true);
-    await new Promise((resolve) => setTimeout(resolve, 800));
+
+    const result = await createAppointment({
+      customerId: customerMode === "existing" ? customerId ?? undefined : undefined,
+      newCustomer:
+        customerMode === "new"
+          ? { name: newCustomerName, phone: newCustomerPhone }
+          : undefined,
+      serviceId,
+      professionalId,
+      date,
+      startTime: time,
+      notes,
+    });
+
     setSubmitting(false);
+
+    if (!result.ok) {
+      setServerError(result.error);
+      // The slot we had may no longer be valid (e.g. someone else just
+      // booked it) — refresh the list so the user sees current reality.
+      setTime("");
+      fetchAvailableSlots({ professionalId, serviceId, date }).then((r) => {
+        setAvailableSlots(r.ok ? r.data.slots : []);
+      });
+      return;
+    }
+
     setSuccess(true);
   };
 
@@ -113,10 +173,6 @@ export function NewAppointmentForm() {
             {format(new Date(`${date}T00:00:00`), "dd/MM/yyyy")} às {time}
           </p>
         </div>
-        <Alert variant="info" className="text-left">
-          Este é um ambiente de demonstração: o agendamento acima não foi
-          salvo em nenhum banco de dados.
-        </Alert>
         <div className="flex w-full gap-2">
           <Button href="/agenda" variant="secondary" fullWidth>
             Ver agenda
@@ -144,6 +200,8 @@ export function NewAppointmentForm() {
 
   return (
     <form onSubmit={onSubmit} className="flex flex-col gap-5" noValidate>
+      {serverError && <Alert variant="error">{serverError}</Alert>}
+
       <div className="flex flex-col gap-2">
         <div className="flex items-center justify-between">
           <label className="text-sm font-medium text-brand-graphite">
@@ -177,7 +235,7 @@ export function NewAppointmentForm() {
           </div>
         </div>
         {customerMode === "existing" ? (
-          <CustomerPicker value={customerId} onChange={setCustomerId} />
+          <CustomerPicker value={customerId} onChange={setCustomerId} customers={customers} />
         ) : (
           <NewCustomerFields
             name={newCustomerName}
@@ -198,13 +256,11 @@ export function NewAppointmentForm() {
         error={errors.service}
         onChange={(e) => setServiceId(e.target.value)}
       >
-        {services
-          .filter((s) => s.active)
-          .map((s) => (
-            <option key={s.id} value={s.id}>
-              {s.name} · {s.durationMin} min · {formatCurrencyBRL(s.price)}
-            </option>
-          ))}
+        {services.map((s) => (
+          <option key={s.id} value={s.id}>
+            {s.name} · {s.duration_min} min · {formatCurrencyBRL(s.price_cents / 100)}
+          </option>
+        ))}
       </Select>
 
       <Select
@@ -234,7 +290,7 @@ export function NewAppointmentForm() {
           <input
             type="date"
             value={date}
-            min={format(todayDate, "yyyy-MM-dd")}
+            min={format(new Date(), "yyyy-MM-dd")}
             onChange={(e) => setDate(e.target.value)}
             className="h-11 w-full rounded-xl border border-black/10 bg-white px-3.5 text-sm text-brand-graphite outline-none focus:border-brand-orange focus:ring-2 focus:ring-brand-orange/20"
           />
@@ -250,6 +306,10 @@ export function NewAppointmentForm() {
           {!service || !professionalId ? (
             <p className="flex h-11 items-center text-sm text-brand-graphite/40">
               Escolha o serviço e o profissional
+            </p>
+          ) : loadingSlots ? (
+            <p className="flex h-11 items-center text-sm text-brand-graphite/40">
+              Calculando horários...
             </p>
           ) : availableSlots.length === 0 ? (
             <p className="flex h-11 items-center text-sm text-brand-error">
@@ -284,7 +344,7 @@ export function NewAppointmentForm() {
         <div className="flex items-center gap-2 rounded-xl bg-brand-surface px-3.5 py-2.5 text-sm text-brand-graphite/70">
           <Clock className="size-4 text-brand-orange" />
           Término previsto às <strong className="text-brand-graphite">{endTime}</strong>
-          {" "}({service.durationMin} min)
+          {" "}({service.duration_min} min)
         </div>
       )}
 

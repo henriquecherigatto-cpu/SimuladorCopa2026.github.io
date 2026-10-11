@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { useRouter } from "next/navigation";
 import { Phone, Plus, UserCog } from "lucide-react";
 import { PageHeader } from "@/components/PageHeader";
 import { Button } from "@/components/ui/Button";
@@ -11,91 +12,104 @@ import { Modal } from "@/components/ui/Modal";
 import { Input } from "@/components/ui/Input";
 import { Alert } from "@/components/ui/Alert";
 import { EmptyState } from "@/components/ui/EmptyState";
-import {
-  professionals as initialProfessionals,
-  services,
-} from "@/lib/mock-data";
 import { cn } from "@/lib/utils";
-import type { Professional } from "@/types";
+import {
+  createProfessional,
+  setProfessionalActive,
+  setProfessionalServices,
+  updateProfessional,
+  type ProfessionalInput,
+} from "@/lib/actions/professionals";
 
 const PALETTE = ["#FF6B1A", "#2563EB", "#16803C", "#9333EA", "#DC2626", "#0E7490"];
+const WEEKDAY_LABELS = ["Domingo", "Segunda-feira", "Terça-feira", "Quarta-feira", "Quinta-feira", "Sexta-feira", "Sábado"];
 
-export function ProfissionaisPageClient() {
-  const [professionals, setProfessionals] = React.useState<Professional[]>(
-    initialProfessionals,
-  );
+export interface ProfessionalRow {
+  id: string;
+  name: string;
+  phone: string | null;
+  role_title: string;
+  color: string;
+  active: boolean;
+  work_start: string;
+  work_end: string;
+  weekly_days_off: number[];
+  professional_services: { service: { id: string; name: string } | null }[];
+  appointments: { count: number }[];
+}
+
+export interface ServiceOption {
+  id: string;
+  name: string;
+}
+
+export function ProfissionaisPageClient({
+  initialProfessionals,
+  allServices,
+  canManage,
+}: {
+  initialProfessionals: ProfessionalRow[];
+  allServices: ServiceOption[];
+  canManage: boolean;
+}) {
+  const router = useRouter();
   const [addOpen, setAddOpen] = React.useState(false);
   const [detailsId, setDetailsId] = React.useState<string | null>(null);
-  const [justAdded, setJustAdded] = React.useState(false);
+  const [notice, setNotice] = React.useState<string | null>(null);
 
-  const details = professionals.find((p) => p.id === detailsId) ?? null;
+  const details = initialProfessionals.find((p) => p.id === detailsId) ?? null;
 
-  const handleAdd = (data: {
-    name: string;
-    phone: string;
-    role: string;
-    serviceIds: string[];
-  }) => {
-    const newProfessional: Professional = {
-      id: `prof-${Date.now()}`,
-      companyId: professionals[0]?.companyId ?? "company-barber-013",
-      name: data.name,
-      phone: data.phone,
-      role: data.role || "Barbeiro",
-      color: PALETTE[professionals.length % PALETTE.length],
-      active: true,
-      serviceIds: data.serviceIds,
-      workHours: { start: "09:00", end: "18:00" },
-      daysOff: ["Domingo"],
-      appointmentsCount: 0,
-    };
-    setProfessionals((prev) => [newProfessional, ...prev]);
+  const flash = (message: string) => {
+    setNotice(message);
+    setTimeout(() => setNotice(null), 4000);
+  };
+
+  const handleAdd = async (input: ProfessionalInput) => {
+    const result = await createProfessional(input);
+    if (!result.ok) return result.error;
     setAddOpen(false);
-    setJustAdded(true);
-    setTimeout(() => setJustAdded(false), 4000);
+    flash("Profissional cadastrado com sucesso.");
+    router.refresh();
+    return null;
   };
 
-  const toggleActive = (id: string) => {
-    setProfessionals((prev) =>
-      prev.map((p) => (p.id === id ? { ...p, active: !p.active } : p)),
-    );
-  };
+  const activeCount = initialProfessionals.filter((p) => p.active).length;
 
   return (
     <div className="flex flex-col gap-5">
       <PageHeader
         title="Profissionais"
-        description={`${professionals.filter((p) => p.active).length} ativos de ${professionals.length} cadastrados`}
+        description={`${activeCount} ativos de ${initialProfessionals.length} cadastrados`}
         action={
-          <Button icon={<Plus className="size-4" />} onClick={() => setAddOpen(true)}>
-            Novo profissional
-          </Button>
+          canManage && (
+            <Button icon={<Plus className="size-4" />} onClick={() => setAddOpen(true)}>
+              Novo profissional
+            </Button>
+          )
         }
       />
 
-      {justAdded && (
-        <Alert variant="success" title="Profissional cadastrado">
-          O novo profissional foi adicionado à lista local de demonstração.
-        </Alert>
-      )}
+      {notice && <Alert variant="info">{notice}</Alert>}
 
-      {professionals.length === 0 ? (
+      {initialProfessionals.length === 0 ? (
         <Card>
           <EmptyState
             icon={UserCog}
             title="Nenhum profissional cadastrado"
             description="Cadastre os profissionais que atendem na sua barbearia."
             action={
-              <Button size="sm" onClick={() => setAddOpen(true)}>
-                Novo profissional
-              </Button>
+              canManage && (
+                <Button size="sm" onClick={() => setAddOpen(true)}>
+                  Novo profissional
+                </Button>
+              )
             }
           />
         </Card>
       ) : (
         <Card className="overflow-hidden">
           <ul className="divide-y divide-black/5">
-            {professionals.map((p) => (
+            {initialProfessionals.map((p) => (
               <li key={p.id}>
                 <button
                   onClick={() => setDetailsId(p.id)}
@@ -107,7 +121,7 @@ export function ProfissionaisPageClient() {
                       {p.name}
                     </p>
                     <p className="truncate text-xs text-brand-graphite/50">
-                      {p.role} · {p.appointmentsCount} agendamentos
+                      {p.role_title} · {p.appointments[0]?.count ?? 0} agendamentos
                     </p>
                   </div>
                   <Badge variant={p.active ? "success" : "neutral"}>
@@ -124,11 +138,17 @@ export function ProfissionaisPageClient() {
         open={addOpen}
         onClose={() => setAddOpen(false)}
         onAdd={handleAdd}
+        allServices={allServices}
       />
       <ProfessionalDetailsModal
         professional={details}
+        allServices={allServices}
+        canManage={canManage}
         onClose={() => setDetailsId(null)}
-        onToggleActive={() => details && toggleActive(details.id)}
+        onChanged={(message) => {
+          flash(message);
+          router.refresh();
+        }}
       />
     </div>
   );
@@ -138,38 +158,37 @@ function AddProfessionalModal({
   open,
   onClose,
   onAdd,
+  allServices,
 }: {
   open: boolean;
   onClose: () => void;
-  onAdd: (data: {
-    name: string;
-    phone: string;
-    role: string;
-    serviceIds: string[];
-  }) => void;
+  onAdd: (input: ProfessionalInput) => Promise<string | null>;
+  allServices: ServiceOption[];
 }) {
   return (
     <Modal open={open} onClose={onClose} title="Novo profissional">
-      {open && <AddProfessionalFormFields onAdd={onAdd} />}
+      {open && (
+        <AddProfessionalFormFields onAdd={onAdd} onClose={onClose} allServices={allServices} />
+      )}
     </Modal>
   );
 }
 
 function AddProfessionalFormFields({
   onAdd,
+  onClose,
+  allServices,
 }: {
-  onAdd: (data: {
-    name: string;
-    phone: string;
-    role: string;
-    serviceIds: string[];
-  }) => void;
+  onAdd: (input: ProfessionalInput) => Promise<string | null>;
+  onClose: () => void;
+  allServices: ServiceOption[];
 }) {
   const [name, setName] = React.useState("");
   const [phone, setPhone] = React.useState("");
   const [role, setRole] = React.useState("");
   const [selectedServices, setSelectedServices] = React.useState<string[]>([]);
   const [error, setError] = React.useState<string | null>(null);
+  const [submitting, setSubmitting] = React.useState(false);
 
   const toggleService = (id: string) => {
     setSelectedServices((prev) =>
@@ -177,13 +196,23 @@ function AddProfessionalFormFields({
     );
   };
 
-  const onSubmit = (e: React.FormEvent) => {
+  const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name.trim() || !phone.trim()) {
-      setError("Nome e telefone são obrigatórios.");
+    if (!name.trim()) {
+      setError("Informe o nome do profissional.");
       return;
     }
-    onAdd({ name: name.trim(), phone: phone.trim(), role: role.trim(), serviceIds: selectedServices });
+    setSubmitting(true);
+    const actionError = await onAdd({
+      name: name.trim(),
+      phone: phone.trim(),
+      roleTitle: role.trim(),
+      color: PALETTE[Math.floor(Math.random() * PALETTE.length)],
+      serviceIds: selectedServices,
+    });
+    setSubmitting(false);
+    if (actionError) setError(actionError);
+    else onClose();
   };
 
   return (
@@ -213,7 +242,7 @@ function AddProfessionalFormFields({
           Serviços oferecidos
         </span>
         <div className="flex flex-wrap gap-2">
-          {services.map((s) => (
+          {allServices.map((s) => (
             <button
               type="button"
               key={s.id}
@@ -230,7 +259,7 @@ function AddProfessionalFormFields({
           ))}
         </div>
       </div>
-      <Button type="submit" fullWidth>
+      <Button type="submit" fullWidth loading={submitting}>
         Salvar profissional
       </Button>
     </form>
@@ -239,84 +268,316 @@ function AddProfessionalFormFields({
 
 function ProfessionalDetailsModal({
   professional,
+  allServices,
+  canManage,
   onClose,
-  onToggleActive,
+  onChanged,
 }: {
-  professional: Professional | null;
+  professional: ProfessionalRow | null;
+  allServices: ServiceOption[];
+  canManage: boolean;
   onClose: () => void;
-  onToggleActive: () => void;
+  onChanged: (message: string) => void;
 }) {
   return (
     <Modal open={!!professional} onClose={onClose} title="Detalhes do profissional">
       {professional && (
-        <div className="flex flex-col gap-5">
-          <div className="flex items-center gap-3">
-            <Avatar name={professional.name} color={professional.color} size="lg" />
-            <div>
-              <p className="text-base font-semibold text-brand-graphite">
-                {professional.name}
-              </p>
-              <p className="text-sm text-brand-graphite/60">{professional.role}</p>
+        <ProfessionalDetailsBody
+          professional={professional}
+          allServices={allServices}
+          canManage={canManage}
+          onClose={onClose}
+          onChanged={onChanged}
+        />
+      )}
+    </Modal>
+  );
+}
+
+function ProfessionalDetailsBody({
+  professional,
+  allServices,
+  canManage,
+  onClose,
+  onChanged,
+}: {
+  professional: ProfessionalRow;
+  allServices: ServiceOption[];
+  canManage: boolean;
+  onClose: () => void;
+  onChanged: (message: string) => void;
+}) {
+  const [editingServices, setEditingServices] = React.useState(false);
+  const [selectedServices, setSelectedServices] = React.useState<string[]>(
+    professional.professional_services
+      .map((ps) => ps.service?.id)
+      .filter((id): id is string => !!id),
+  );
+  const [editingInfo, setEditingInfo] = React.useState(false);
+  const [name, setName] = React.useState(professional.name);
+  const [phone, setPhone] = React.useState(professional.phone ?? "");
+  const [roleTitle, setRoleTitle] = React.useState(professional.role_title);
+  const [workStart, setWorkStart] = React.useState(professional.work_start.slice(0, 5));
+  const [workEnd, setWorkEnd] = React.useState(professional.work_end.slice(0, 5));
+  const [daysOff, setDaysOff] = React.useState<number[]>(professional.weekly_days_off);
+  const [busy, setBusy] = React.useState(false);
+  const [error, setError] = React.useState<string | null>(null);
+
+  const toggleDayOff = (day: number) => {
+    setDaysOff((prev) =>
+      prev.includes(day) ? prev.filter((d) => d !== day) : [...prev, day],
+    );
+  };
+
+  const saveInfo = async () => {
+    if (!name.trim()) {
+      setError("Informe o nome do profissional.");
+      return;
+    }
+    setBusy(true);
+    const result = await updateProfessional(professional.id, {
+      name: name.trim(),
+      phone: phone.trim(),
+      roleTitle: roleTitle.trim(),
+      workStart,
+      workEnd,
+      weeklyDaysOff: daysOff,
+    });
+    setBusy(false);
+    if (!result.ok) {
+      setError(result.error);
+      return;
+    }
+    setEditingInfo(false);
+    onChanged("Dados do profissional atualizados.");
+  };
+
+  const toggleService = (id: string) => {
+    setSelectedServices((prev) =>
+      prev.includes(id) ? prev.filter((s) => s !== id) : [...prev, id],
+    );
+  };
+
+  const saveServices = async () => {
+    setBusy(true);
+    const result = await setProfessionalServices(professional.id, selectedServices);
+    setBusy(false);
+    if (!result.ok) {
+      setError(result.error);
+      return;
+    }
+    setEditingServices(false);
+    onChanged("Serviços do profissional atualizados.");
+  };
+
+  const toggleActive = async () => {
+    setBusy(true);
+    const result = await setProfessionalActive(professional.id, !professional.active);
+    setBusy(false);
+    if (!result.ok) {
+      setError(result.error);
+      return;
+    }
+    onChanged(
+      professional.active
+        ? "Profissional inativado."
+        : "Profissional reativado.",
+    );
+  };
+
+  return (
+    <div className="flex flex-col gap-5">
+      {error && <Alert variant="error">{error}</Alert>}
+
+      {editingInfo ? (
+        <div className="flex flex-col gap-4">
+          <Input label="Nome" value={name} onChange={(e) => setName(e.target.value)} />
+          <Input
+            label="Telefone"
+            type="tel"
+            value={phone}
+            onChange={(e) => setPhone(e.target.value)}
+          />
+          <Input
+            label="Função"
+            value={roleTitle}
+            onChange={(e) => setRoleTitle(e.target.value)}
+          />
+          <div className="grid grid-cols-2 gap-3">
+            <Input
+              label="Início do expediente"
+              type="time"
+              value={workStart}
+              onChange={(e) => setWorkStart(e.target.value)}
+            />
+            <Input
+              label="Fim do expediente"
+              type="time"
+              value={workEnd}
+              onChange={(e) => setWorkEnd(e.target.value)}
+            />
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <span className="text-sm font-medium text-brand-graphite">
+              Dias de folga
+            </span>
+            <div className="flex flex-wrap gap-2">
+              {WEEKDAY_LABELS.map((label, day) => (
+                <button
+                  type="button"
+                  key={day}
+                  onClick={() => toggleDayOff(day)}
+                  className={cn(
+                    "rounded-full border px-3 py-1.5 text-xs font-medium",
+                    daysOff.includes(day)
+                      ? "border-brand-orange bg-brand-orange/10 text-brand-orange-dark"
+                      : "border-black/10 text-brand-graphite/60",
+                  )}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="flex gap-2">
+            <Button
+              size="sm"
+              variant="secondary"
+              fullWidth
+              onClick={() => setEditingInfo(false)}
+            >
+              Cancelar
+            </Button>
+            <Button size="sm" fullWidth loading={busy} onClick={saveInfo}>
+              Salvar
+            </Button>
+          </div>
+        </div>
+      ) : (
+        <div className="flex items-center gap-3">
+          <Avatar name={professional.name} color={professional.color} size="lg" />
+          <div className="min-w-0 flex-1">
+            <p className="text-base font-semibold text-brand-graphite">
+              {professional.name}
+            </p>
+            <p className="text-sm text-brand-graphite/60">{professional.role_title}</p>
+            {professional.phone && (
               <p className="flex items-center gap-1.5 text-sm text-brand-graphite/60">
                 <Phone className="size-3.5" /> {professional.phone}
               </p>
-            </div>
+            )}
           </div>
-
-          <div>
-            <p className="mb-1.5 text-sm font-semibold text-brand-graphite">
-              Serviços oferecidos
-            </p>
-            <div className="flex flex-wrap gap-1.5">
-              {professional.serviceIds.length === 0 ? (
-                <p className="text-sm text-brand-graphite/50">Nenhum serviço associado.</p>
-              ) : (
-                professional.serviceIds.map((id) => {
-                  const s = services.find((svc) => svc.id === id);
-                  return s ? <Badge key={id}>{s.name}</Badge> : null;
-                })
-              )}
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-3 text-sm">
-            <div className="rounded-xl bg-brand-surface p-3">
-              <p className="text-xs text-brand-graphite/50">Horário de trabalho</p>
-              <p className="font-medium text-brand-graphite">
-                {professional.workHours.start} – {professional.workHours.end}
-              </p>
-            </div>
-            <div className="rounded-xl bg-brand-surface p-3">
-              <p className="text-xs text-brand-graphite/50">Folgas</p>
-              <p className="font-medium text-brand-graphite">
-                {professional.daysOff.join(", ") || "Nenhuma"}
-              </p>
-            </div>
-          </div>
-
-          <div className="flex items-center justify-between rounded-xl border border-black/10 p-3">
-            <div>
-              <p className="text-sm font-medium text-brand-graphite">
-                {professional.active ? "Profissional ativo" : "Profissional inativo"}
-              </p>
-              <p className="text-xs text-brand-graphite/50">
-                Inativar não apaga o histórico de agendamentos.
-              </p>
-            </div>
-            <Button
-              size="sm"
-              variant={professional.active ? "danger" : "secondary"}
-              onClick={onToggleActive}
+          {canManage && (
+            <button
+              onClick={() => setEditingInfo(true)}
+              className="text-xs font-medium text-brand-orange hover:underline"
             >
-              {professional.active ? "Inativar" : "Reativar"}
-            </Button>
-          </div>
+              Editar
+            </button>
+          )}
+        </div>
+      )}
 
-          <Button variant="secondary" fullWidth onClick={onClose}>
-            Fechar
+      {!editingInfo && (
+      <>
+      <div>
+        <div className="mb-1.5 flex items-center justify-between">
+          <p className="text-sm font-semibold text-brand-graphite">
+            Serviços oferecidos
+          </p>
+          {canManage && !editingServices && (
+            <button
+              onClick={() => setEditingServices(true)}
+              className="text-xs font-medium text-brand-orange hover:underline"
+            >
+              Editar
+            </button>
+          )}
+        </div>
+        {editingServices ? (
+          <div className="flex flex-col gap-3">
+            <div className="flex flex-wrap gap-2">
+              {allServices.map((s) => (
+                <button
+                  type="button"
+                  key={s.id}
+                  onClick={() => toggleService(s.id)}
+                  className={cn(
+                    "rounded-full border px-3 py-1.5 text-xs font-medium",
+                    selectedServices.includes(s.id)
+                      ? "border-brand-orange bg-brand-orange/10 text-brand-orange-dark"
+                      : "border-black/10 text-brand-graphite/60",
+                  )}
+                >
+                  {s.name}
+                </button>
+              ))}
+            </div>
+            <div className="flex gap-2">
+              <Button size="sm" variant="secondary" onClick={() => setEditingServices(false)}>
+                Cancelar
+              </Button>
+              <Button size="sm" loading={busy} onClick={saveServices}>
+                Salvar
+              </Button>
+            </div>
+          </div>
+        ) : (
+          <div className="flex flex-wrap gap-1.5">
+            {professional.professional_services.length === 0 ? (
+              <p className="text-sm text-brand-graphite/50">Nenhum serviço associado.</p>
+            ) : (
+              professional.professional_services.map(
+                (ps) => ps.service && <Badge key={ps.service.id}>{ps.service.name}</Badge>,
+              )
+            )}
+          </div>
+        )}
+      </div>
+
+      <div className="grid grid-cols-2 gap-3 text-sm">
+        <div className="rounded-xl bg-brand-surface p-3">
+          <p className="text-xs text-brand-graphite/50">Horário de trabalho</p>
+          <p className="font-medium text-brand-graphite">
+            {professional.work_start.slice(0, 5)} – {professional.work_end.slice(0, 5)}
+          </p>
+        </div>
+        <div className="rounded-xl bg-brand-surface p-3">
+          <p className="text-xs text-brand-graphite/50">Folgas</p>
+          <p className="font-medium text-brand-graphite">
+            {professional.weekly_days_off.length === 0
+              ? "Nenhuma"
+              : professional.weekly_days_off.map((d) => WEEKDAY_LABELS[d]).join(", ")}
+          </p>
+        </div>
+      </div>
+      </>
+      )}
+
+      {canManage && (
+        <div className="flex items-center justify-between rounded-xl border border-black/10 p-3">
+          <div>
+            <p className="text-sm font-medium text-brand-graphite">
+              {professional.active ? "Profissional ativo" : "Profissional inativo"}
+            </p>
+            <p className="text-xs text-brand-graphite/50">
+              Inativar não apaga o histórico de agendamentos.
+            </p>
+          </div>
+          <Button
+            size="sm"
+            variant={professional.active ? "danger" : "secondary"}
+            loading={busy}
+            onClick={toggleActive}
+          >
+            {professional.active ? "Inativar" : "Reativar"}
           </Button>
         </div>
       )}
-    </Modal>
+
+      <Button variant="secondary" fullWidth onClick={onClose}>
+        Fechar
+      </Button>
+    </div>
   );
 }

@@ -3,15 +3,22 @@
 import * as React from "react";
 import { Search, UserPlus } from "lucide-react";
 import { Avatar } from "@/components/ui/Avatar";
-import { customers } from "@/lib/mock-data";
 import { cn } from "@/lib/utils";
+
+export interface CustomerOption {
+  id: string;
+  name: string;
+  phone: string;
+}
 
 export function CustomerPicker({
   value,
   onChange,
+  customers,
 }: {
   value: string | null;
   onChange: (customerId: string | null) => void;
+  customers: CustomerOption[];
 }) {
   const [query, setQuery] = React.useState("");
   const [open, setOpen] = React.useState(false);

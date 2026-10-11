@@ -81,10 +81,18 @@ begin
       jsonb_build_object('profile_id', new.profile_id, 'from', old.role, 'to', new.role)
     );
   elsif tg_op = 'DELETE' then
-    perform public.write_audit_log(
-      old.company_id, 'member_removed', 'company_member', old.id,
-      jsonb_build_object('profile_id', old.profile_id, 'role', old.role)
-    );
+    -- Skip logging when this delete is itself a cascade from the
+    -- parent company being deleted: by the time this AFTER DELETE
+    -- trigger runs, the companies row is already gone, so an
+    -- audit_logs row referencing it would immediately dangle (and
+    -- the fact the whole company was deleted is what matters, not
+    -- each individual membership within it).
+    if exists (select 1 from public.companies where id = old.company_id) then
+      perform public.write_audit_log(
+        old.company_id, 'member_removed', 'company_member', old.id,
+        jsonb_build_object('profile_id', old.profile_id, 'role', old.role)
+      );
+    end if;
   end if;
   if tg_op = 'DELETE' then
     return old;

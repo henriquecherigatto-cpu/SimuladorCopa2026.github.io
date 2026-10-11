@@ -10,49 +10,87 @@ import { Avatar } from "@/components/ui/Avatar";
 import { AppointmentStatusBadge } from "@/components/ui/StatusBadge";
 import { AppointmentDetailsModal } from "@/components/agenda/AppointmentDetailsModal";
 import {
-  getAppointmentsByDate,
-  getBusinessHoursForDate,
-  getCustomerById,
-  getServiceById,
-  professionals,
-  todayDate,
-} from "@/lib/mock-data";
+  listAppointmentsInRange,
+  type AppointmentListItem,
+} from "@/lib/actions/appointments";
 import { cn, hhmmToMinutes, minutesToHHMM } from "@/lib/utils";
-import type { Appointment } from "@/types";
 
 const SLOT_MINUTES = 30;
 const ROW_HEIGHT = 64; // px per 30-minute slot
+
+export interface ProfessionalChip {
+  id: string;
+  name: string;
+  color: string;
+}
+
+export interface BusinessHoursRow {
+  day_of_week: number;
+  is_open: boolean;
+  start_time: string;
+  end_time: string;
+}
 
 function toISODate(date: Date) {
   return format(date, "yyyy-MM-dd");
 }
 
-export function AgendaDayView() {
-  const [selectedDate, setSelectedDate] = React.useState(() =>
-    toISODate(todayDate),
-  );
+export function AgendaDayView({
+  professionals,
+  businessHours,
+}: {
+  professionals: ProfessionalChip[];
+  businessHours: BusinessHoursRow[];
+}) {
+  const [selectedDate, setSelectedDate] = React.useState(() => toISODate(new Date()));
   const [activeProfessional, setActiveProfessional] = React.useState<
     string | "todos"
   >("todos");
-  const [detailsAppt, setDetailsAppt] = React.useState<Appointment | null>(
+  const [detailsAppt, setDetailsAppt] = React.useState<AppointmentListItem | null>(
     null,
   );
+  const [appointments, setAppointments] = React.useState<AppointmentListItem[]>([]);
+  const [loading, setLoading] = React.useState(true);
+  const [error, setError] = React.useState<string | null>(null);
+
+  const loadAppointments = React.useCallback(() => {
+    setLoading(true);
+    listAppointmentsInRange(selectedDate, selectedDate).then((result) => {
+      setLoading(false);
+      if (!result.ok) {
+        setError(result.error);
+        return;
+      }
+      setError(null);
+      setAppointments(result.data);
+    });
+  }, [selectedDate]);
+
+  React.useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    loadAppointments();
+  }, [loadAppointments]);
 
   const dateObj = React.useMemo(
     () => new Date(`${selectedDate}T00:00:00`),
     [selectedDate],
   );
-  const hours = getBusinessHoursForDate(selectedDate);
-  const isToday = selectedDate === toISODate(todayDate);
+  const weekday = dateObj.getDay();
+  const hours = businessHours.find((h) => h.day_of_week === weekday) ?? {
+    day_of_week: weekday,
+    is_open: false,
+    start_time: "08:00",
+    end_time: "18:00",
+  };
+  const isToday = selectedDate === toISODate(new Date());
 
-  const dayAppointments = getAppointmentsByDate(selectedDate).filter(
-    (a) => activeProfessional === "todos" || a.professionalId === activeProfessional,
+  const dayAppointments = appointments.filter(
+    (a) =>
+      activeProfessional === "todos" || a.professional?.id === activeProfessional,
   );
 
-  const activeProfessionals = professionals.filter((p) => p.active);
-
-  const openMin = hhmmToMinutes(hours.start);
-  const closeMin = hhmmToMinutes(hours.end);
+  const openMin = hhmmToMinutes(hours.start_time.slice(0, 5));
+  const closeMin = hhmmToMinutes(hours.end_time.slice(0, 5));
   const totalSlots = Math.max(0, Math.ceil((closeMin - openMin) / SLOT_MINUTES));
   const hourMarks: number[] = [];
   for (let m = openMin; m <= closeMin; m += 60) hourMarks.push(m);
@@ -85,7 +123,7 @@ export function AgendaDayView() {
           </button>
           {!isToday && (
             <button
-              onClick={() => setSelectedDate(toISODate(todayDate))}
+              onClick={() => setSelectedDate(toISODate(new Date()))}
               className="rounded-lg px-2.5 py-1.5 text-xs font-medium text-brand-orange hover:bg-brand-orange/10"
             >
               Hoje
@@ -115,7 +153,7 @@ export function AgendaDayView() {
         >
           Todos
         </button>
-        {activeProfessionals.map((prof) => (
+        {professionals.map((prof) => (
           <button
             key={prof.id}
             onClick={() => setActiveProfessional(prof.id)}
@@ -138,7 +176,11 @@ export function AgendaDayView() {
       </div>
 
       <div className="rounded-2xl border border-black/5 bg-white p-4 shadow-sm sm:p-5">
-        {!hours.open ? (
+        {error ? (
+          <EmptyState icon={CalendarOff} title="Não foi possível carregar a agenda" description={error} />
+        ) : loading ? (
+          <p className="py-10 text-center text-sm text-brand-graphite/40">Carregando...</p>
+        ) : !hours.is_open ? (
           <EmptyState
             icon={CalendarOff}
             title="Fechado neste dia"
@@ -183,19 +225,17 @@ export function AgendaDayView() {
                 />
               ))}
               {dayAppointments.map((appt) => {
-                const customer = getCustomerById(appt.customerId);
-                const service = getServiceById(appt.serviceId);
-                const professional = activeProfessionals.find(
-                  (p) => p.id === appt.professionalId,
-                );
-                const start = hhmmToMinutes(appt.startTime);
-                const end = hhmmToMinutes(appt.endTime);
-                const top = ((start - openMin) / SLOT_MINUTES) * ROW_HEIGHT;
+                const start = new Date(appt.starts_at);
+                const end = new Date(appt.ends_at);
+                const startMin = start.getHours() * 60 + start.getMinutes();
+                const endMin = end.getHours() * 60 + end.getMinutes();
+                const top = ((startMin - openMin) / SLOT_MINUTES) * ROW_HEIGHT;
                 const height = Math.max(
-                  ((end - start) / SLOT_MINUTES) * ROW_HEIGHT - 4,
+                  ((endMin - startMin) / SLOT_MINUTES) * ROW_HEIGHT - 4,
                   28,
                 );
                 const cancelled = appt.status === "cancelado";
+                const color = appt.professional?.color ?? "#FF6B1A";
                 return (
                   <button
                     key={appt.id}
@@ -205,8 +245,8 @@ export function AgendaDayView() {
                       height,
                       left: 8,
                       right: 8,
-                      borderLeftColor: professional?.color ?? "#FF6B1A",
-                      backgroundColor: `${professional?.color ?? "#FF6B1A"}14`,
+                      borderLeftColor: color,
+                      backgroundColor: `${color}14`,
                     }}
                     className={cn(
                       "absolute flex flex-col justify-center gap-0.5 overflow-hidden rounded-lg border-l-4 px-3 py-1.5 text-left transition-opacity hover:opacity-80",
@@ -215,7 +255,7 @@ export function AgendaDayView() {
                   >
                     <div className="flex items-center justify-between gap-2">
                       <p className="truncate text-xs font-semibold text-brand-graphite sm:text-sm">
-                        {appt.startTime} · {customer?.name}
+                        {format(start, "HH:mm")} · {appt.customer?.name}
                       </p>
                       <AppointmentStatusBadge
                         status={appt.status}
@@ -223,9 +263,9 @@ export function AgendaDayView() {
                       />
                     </div>
                     <p className="truncate text-xs text-brand-graphite/60">
-                      {service?.name}
-                      {activeProfessional === "todos" && professional
-                        ? ` · ${professional.name}`
+                      {appt.service?.name}
+                      {activeProfessional === "todos" && appt.professional
+                        ? ` · ${appt.professional.name}`
                         : ""}
                     </p>
                   </button>
@@ -239,6 +279,7 @@ export function AgendaDayView() {
       <AppointmentDetailsModal
         appointment={detailsAppt}
         onClose={() => setDetailsAppt(null)}
+        onChanged={loadAppointments}
       />
     </div>
   );
