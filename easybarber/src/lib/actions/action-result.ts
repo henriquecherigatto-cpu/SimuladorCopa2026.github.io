@@ -44,6 +44,18 @@ export async function runAction<T>(
           error: "Esse horário está bloqueado para este profissional.",
         };
       }
+      if (error.message?.includes("overlaps another break")) {
+        return {
+          ok: false,
+          error: "Essa pausa se sobrepõe a outra pausa já cadastrada para este profissional.",
+        };
+      }
+      if (error.message?.includes("overlaps the professional's scheduled break")) {
+        return {
+          ok: false,
+          error: "Esse horário cai dentro de uma pausa programada deste profissional.",
+        };
+      }
       return { ok: false, error: error.message };
     }
 

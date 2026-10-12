@@ -122,6 +122,67 @@ export async function setProfessionalServices(
   });
 }
 
+export interface ProfessionalBreakInput {
+  startTime: string;
+  endTime: string;
+  label?: string;
+}
+
+export async function addProfessionalBreak(
+  professionalId: string,
+  input: ProfessionalBreakInput,
+): Promise<ActionResult<{ id: string }>> {
+  return runAction(async () => {
+    const { supabase, companyId, role } = await requireMembership();
+    assertOwner(role);
+
+    if (!input.startTime || !input.endTime) {
+      throw new Error("Informe o início e o fim da pausa.");
+    }
+    if (input.startTime >= input.endTime) {
+      throw new Error("O horário de início da pausa deve ser antes do horário de fim.");
+    }
+
+    const { data, error } = await supabase
+      .from("professional_breaks")
+      .insert({
+        company_id: companyId,
+        professional_id: professionalId,
+        start_time: input.startTime,
+        end_time: input.endTime,
+        label: input.label?.trim() || null,
+      })
+      .select("id")
+      .single();
+
+    if (error) throw error;
+
+    revalidatePath("/profissionais");
+    revalidatePath("/agenda/novo");
+    return data;
+  });
+}
+
+export async function deleteProfessionalBreak(
+  breakId: string,
+): Promise<ActionResult<undefined>> {
+  return runAction(async () => {
+    const { supabase, role } = await requireMembership();
+    assertOwner(role);
+
+    const { error } = await supabase
+      .from("professional_breaks")
+      .delete()
+      .eq("id", breakId);
+
+    if (error) throw error;
+
+    revalidatePath("/profissionais");
+    revalidatePath("/agenda/novo");
+    return undefined;
+  });
+}
+
 export async function setProfessionalActive(
   professionalId: string,
   active: boolean,

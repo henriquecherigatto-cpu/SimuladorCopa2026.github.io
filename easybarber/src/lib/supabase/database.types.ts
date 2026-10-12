@@ -1,9 +1,26 @@
-// GENERATED FILE — do not hand-edit.
-// Regenerate after changing supabase/migrations/*.sql:
-//   npx supabase gen types typescript --db-url "<your-db-url>" --schema public > src/lib/supabase/database.types.ts
 export type Json = string | number | boolean | null | { [key: string]: Json | undefined } | Json[];
 
 export type Database = {
+  graphql_public: {
+    Tables: {
+      [_ in never]: never;
+    };
+    Views: {
+      [_ in never]: never;
+    };
+    Functions: {
+      graphql: {
+        Args: { extensions?: Json; operationName?: string; query?: string; variables?: Json };
+        Returns: Json;
+      };
+    };
+    Enums: {
+      [_ in never]: never;
+    };
+    CompositeTypes: {
+      [_ in never]: never;
+    };
+  };
   public: {
     Tables: {
       appointments: {
@@ -418,6 +435,59 @@ export type Database = {
           updated_at?: string;
         };
         Relationships: [];
+      };
+      professional_breaks: {
+        Row: {
+          company_id: string;
+          created_at: string;
+          end_time: string;
+          id: string;
+          label: string | null;
+          professional_id: string;
+          start_time: string;
+        };
+        ComputedFields: never;
+        Insert: {
+          company_id: string;
+          created_at?: string;
+          end_time: string;
+          id?: string;
+          label?: string | null;
+          professional_id: string;
+          start_time: string;
+        };
+        Update: {
+          company_id?: string;
+          created_at?: string;
+          end_time?: string;
+          id?: string;
+          label?: string | null;
+          professional_id?: string;
+          start_time?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "professional_breaks_company_id_fkey";
+            columns: ["company_id"];
+            isOneToOne: false;
+            referencedRelation: "companies";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "professional_breaks_professional_id_fkey";
+            columns: ["professional_id"];
+            isOneToOne: false;
+            referencedRelation: "professionals";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "professional_breaks_same_company";
+            columns: ["company_id", "professional_id"];
+            isOneToOne: false;
+            referencedRelation: "professionals";
+            referencedColumns: ["company_id", "id"];
+          },
+        ];
       };
       professional_services: {
         Row: {
@@ -938,6 +1008,9 @@ export type CompositeTypes<
     : never;
 
 export const Constants = {
+  graphql_public: {
+    Enums: {},
+  },
   public: {
     Enums: {
       appointment_status: ["agendado", "confirmado", "concluido", "cancelado"],

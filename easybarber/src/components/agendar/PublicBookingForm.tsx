@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { format } from "date-fns";
-import { CalendarCheck, Clock, Phone, User } from "lucide-react";
+import { CalendarCheck, CalendarPlus, Clock, Phone, User } from "lucide-react";
 import { Select } from "@/components/ui/Select";
 import { Input } from "@/components/ui/Input";
 import { Textarea } from "@/components/ui/Textarea";
@@ -15,14 +15,18 @@ import {
   type PublicProfessional,
   type PublicService,
 } from "@/lib/actions/public-booking";
-import { cn, formatCurrencyBRL, hhmmToMinutes, minutesToHHMM } from "@/lib/utils";
+import { buildGoogleCalendarLink, cn, formatCurrencyBRL, hhmmToMinutes, minutesToHHMM } from "@/lib/utils";
 
 export function PublicBookingForm({
   slug,
+  companyName,
+  companyAddress,
   services,
   professionals,
 }: {
   slug: string;
+  companyName: string;
+  companyAddress: string | null;
   services: PublicService[];
   professionals: PublicProfessional[];
 }) {
@@ -126,6 +130,19 @@ export function PublicBookingForm({
   const professional = professionals.find((p) => p.id === professionalId);
 
   if (success) {
+    const startsAt = new Date(`${date}T${time}:00`);
+    const googleCalendarLink =
+      service &&
+      buildGoogleCalendarLink({
+        title: `${service.name} — ${companyName}`,
+        description: professional
+          ? `Agendamento com ${professional.name} via Easy Barber.`
+          : "Agendamento via Easy Barber.",
+        location: companyAddress ?? undefined,
+        start: startsAt,
+        end: new Date(startsAt.getTime() + service.duration_min * 60_000),
+      });
+
     return (
       <div className="flex flex-col items-center gap-5 rounded-2xl border border-black/5 bg-white p-6 py-10 text-center shadow-sm">
         <span className="flex size-14 items-center justify-center rounded-full bg-emerald-100 text-emerald-700">
@@ -144,6 +161,17 @@ export function PublicBookingForm({
           Guarde esta data — a barbearia pode entrar em contato pelo telefone informado para
           confirmar.
         </p>
+        {googleCalendarLink && (
+          <a
+            href={googleCalendarLink}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex h-10 w-full items-center justify-center gap-2 rounded-xl border border-black/10 bg-white px-4 text-sm font-medium text-brand-graphite transition-colors hover:bg-black/5"
+          >
+            <CalendarPlus className="size-4" />
+            Adicionar ao Google Agenda
+          </a>
+        )}
         <Button
           variant="secondary"
           fullWidth

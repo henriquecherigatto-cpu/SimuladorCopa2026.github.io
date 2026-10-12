@@ -14,12 +14,14 @@ export function PublicAgendarPageClient({
   slug,
   companyName,
   companyPhone,
+  companyAddress,
   services,
   professionals,
 }: {
   slug: string;
   companyName: string;
   companyPhone: string;
+  companyAddress: string | null;
   services: PublicService[];
   professionals: PublicProfessional[];
 }) {
@@ -57,7 +59,13 @@ export function PublicAgendarPageClient({
       </div>
 
       {tab === "agendar" ? (
-        <PublicBookingForm slug={slug} services={services} professionals={professionals} />
+        <PublicBookingForm
+          slug={slug}
+          companyName={companyName}
+          companyAddress={companyAddress}
+          services={services}
+          professionals={professionals}
+        />
       ) : (
         <PublicLookupForm slug={slug} />
       )}

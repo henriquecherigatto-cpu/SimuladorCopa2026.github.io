@@ -43,3 +43,28 @@ export function buildWhatsAppLink(phone: string, message?: string): string {
   const base = `https://wa.me/${withCountryCode}`;
   return message ? `${base}?text=${encodeURIComponent(message)}` : base;
 }
+
+/**
+ * Builds a Google Calendar "add event" deep link (calendar.google.com
+ * TEMPLATE action) — no auth or API key needed, it just pre-fills the
+ * event creation form for whoever opens it.
+ */
+export function buildGoogleCalendarLink(input: {
+  title: string;
+  start: Date;
+  end: Date;
+  description?: string;
+  location?: string;
+}): string {
+  const toUtcStamp = (date: Date) => date.toISOString().replace(/[-:]/g, "").split(".")[0] + "Z";
+
+  const params = new URLSearchParams({
+    action: "TEMPLATE",
+    text: input.title,
+    dates: `${toUtcStamp(input.start)}/${toUtcStamp(input.end)}`,
+  });
+  if (input.description) params.set("details", input.description);
+  if (input.location) params.set("location", input.location);
+
+  return `https://calendar.google.com/calendar/render?${params.toString()}`;
+}

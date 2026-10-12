@@ -46,6 +46,7 @@ export default async function AgendarPage({
           slug={slug}
           companyName={company.name}
           companyPhone={company.phone}
+          companyAddress={company.address}
           services={services}
           professionals={professionals}
         />

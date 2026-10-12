@@ -14,7 +14,9 @@ import { Alert } from "@/components/ui/Alert";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { cn } from "@/lib/utils";
 import {
+  addProfessionalBreak,
   createProfessional,
+  deleteProfessionalBreak,
   setProfessionalActive,
   setProfessionalServices,
   updateProfessional,
@@ -35,6 +37,7 @@ export interface ProfessionalRow {
   work_end: string;
   weekly_days_off: number[];
   professional_services: { service: { id: string; name: string } | null }[];
+  professional_breaks: { id: string; start_time: string; end_time: string; label: string | null }[];
   appointments: { count: number }[];
 }
 
@@ -323,6 +326,52 @@ function ProfessionalDetailsBody({
   const [busy, setBusy] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
 
+  const [editingBreaks, setEditingBreaks] = React.useState(false);
+  const [newBreakStart, setNewBreakStart] = React.useState("");
+  const [newBreakEnd, setNewBreakEnd] = React.useState("");
+  const [newBreakLabel, setNewBreakLabel] = React.useState("");
+  const [breaksBusy, setBreaksBusy] = React.useState(false);
+  const [breaksError, setBreaksError] = React.useState<string | null>(null);
+
+  const sortedBreaks = [...professional.professional_breaks].sort((a, b) =>
+    a.start_time.localeCompare(b.start_time),
+  );
+
+  const addBreak = async () => {
+    if (!newBreakStart || !newBreakEnd) {
+      setBreaksError("Informe o início e o fim da pausa.");
+      return;
+    }
+    setBreaksBusy(true);
+    setBreaksError(null);
+    const result = await addProfessionalBreak(professional.id, {
+      startTime: newBreakStart,
+      endTime: newBreakEnd,
+      label: newBreakLabel,
+    });
+    setBreaksBusy(false);
+    if (!result.ok) {
+      setBreaksError(result.error);
+      return;
+    }
+    setNewBreakStart("");
+    setNewBreakEnd("");
+    setNewBreakLabel("");
+    onChanged("Pausa adicionada.");
+  };
+
+  const removeBreak = async (breakId: string) => {
+    setBreaksBusy(true);
+    setBreaksError(null);
+    const result = await deleteProfessionalBreak(breakId);
+    setBreaksBusy(false);
+    if (!result.ok) {
+      setBreaksError(result.error);
+      return;
+    }
+    onChanged("Pausa removida.");
+  };
+
   const toggleDayOff = (day: number) => {
     setDaysOff((prev) =>
       prev.includes(day) ? prev.filter((d) => d !== day) : [...prev, day],
@@ -531,6 +580,91 @@ function ProfessionalDetailsBody({
                 (ps) => ps.service && <Badge key={ps.service.id}>{ps.service.name}</Badge>,
               )
             )}
+          </div>
+        )}
+      </div>
+
+      <div>
+        <div className="mb-1.5 flex items-center justify-between">
+          <p className="text-sm font-semibold text-brand-graphite">
+            Pausas programadas
+          </p>
+          {canManage && !editingBreaks && (
+            <button
+              onClick={() => setEditingBreaks(true)}
+              className="text-xs font-medium text-brand-orange hover:underline"
+            >
+              Editar
+            </button>
+          )}
+        </div>
+        {editingBreaks ? (
+          <div className="flex flex-col gap-3">
+            {breaksError && <Alert variant="error">{breaksError}</Alert>}
+            {sortedBreaks.length === 0 ? (
+              <p className="text-sm text-brand-graphite/50">Nenhuma pausa cadastrada.</p>
+            ) : (
+              <ul className="flex flex-col gap-1.5">
+                {sortedBreaks.map((b) => (
+                  <li
+                    key={b.id}
+                    className="flex items-center justify-between rounded-lg bg-brand-surface px-3 py-2 text-sm"
+                  >
+                    <span className="text-brand-graphite">
+                      {b.start_time.slice(0, 5)} – {b.end_time.slice(0, 5)}
+                      {b.label && <span className="text-brand-graphite/50"> · {b.label}</span>}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => removeBreak(b.id)}
+                      disabled={breaksBusy}
+                      className="text-xs font-medium text-brand-error hover:underline disabled:opacity-50"
+                    >
+                      Remover
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+            <div className="grid grid-cols-2 gap-3">
+              <Input
+                label="Início"
+                type="time"
+                value={newBreakStart}
+                onChange={(e) => setNewBreakStart(e.target.value)}
+              />
+              <Input
+                label="Fim"
+                type="time"
+                value={newBreakEnd}
+                onChange={(e) => setNewBreakEnd(e.target.value)}
+              />
+            </div>
+            <Input
+              label="Nome da pausa (opcional)"
+              value={newBreakLabel}
+              onChange={(e) => setNewBreakLabel(e.target.value)}
+              placeholder="Ex: Almoço"
+            />
+            <div className="flex gap-2">
+              <Button size="sm" variant="secondary" onClick={() => setEditingBreaks(false)}>
+                Concluído
+              </Button>
+              <Button size="sm" loading={breaksBusy} onClick={addBreak}>
+                Adicionar pausa
+              </Button>
+            </div>
+          </div>
+        ) : sortedBreaks.length === 0 ? (
+          <p className="text-sm text-brand-graphite/50">Nenhuma pausa cadastrada.</p>
+        ) : (
+          <div className="flex flex-wrap gap-1.5">
+            {sortedBreaks.map((b) => (
+              <Badge key={b.id}>
+                {b.start_time.slice(0, 5)}–{b.end_time.slice(0, 5)}
+                {b.label ? ` · ${b.label}` : ""}
+              </Badge>
+            ))}
           </div>
         )}
       </div>
