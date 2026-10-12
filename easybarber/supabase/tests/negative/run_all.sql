@@ -24,5 +24,7 @@
 \ir 070_public_booking.sql
 \echo '=== 080_public_appointment_lookup.sql ==='
 \ir 080_public_appointment_lookup.sql
+\echo '=== 090_professional_breaks.sql ==='
+\ir 090_professional_breaks.sql
 
 \echo '=== ALL NEGATIVE TESTS PASSED ==='
