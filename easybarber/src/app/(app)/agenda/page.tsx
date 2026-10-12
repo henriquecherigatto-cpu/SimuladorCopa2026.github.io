@@ -13,7 +13,7 @@ export default async function AgendaDiaPage() {
   const [{ data: professionals }, { data: businessHours }] = await Promise.all([
     supabase
       .from("professionals")
-      .select("id, name, color")
+      .select("id, name, color, photo_url")
       .eq("company_id", companyId)
       .eq("active", true)
       .order("name"),

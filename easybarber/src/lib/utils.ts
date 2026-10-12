@@ -33,14 +33,24 @@ export function hhmmToMinutes(hhmm: string): number {
 }
 
 /**
+ * Normalizes a phone number to digits-only, with the 55 country code
+ * prefixed when missing. Assumes a Brazilian number since that's the
+ * only market this app serves today. Shared by buildWhatsAppLink()
+ * (a wa.me link, for a human to click) and the WhatsApp provider
+ * adapter (src/lib/whatsapp/twilio.ts, an actual API call) so both
+ * normalize a visitor-typed phone number the exact same way.
+ */
+export function toWhatsAppDigits(phone: string): string {
+  const digits = phone.replace(/\D/g, "");
+  return digits.startsWith("55") ? digits : `55${digits}`;
+}
+
+/**
  * Builds a wa.me deep link that opens a chat with the given phone
- * number. Assumes a Brazilian number (prefixes the 55 country code
- * when missing) since that's the only market this app serves today.
+ * number.
  */
 export function buildWhatsAppLink(phone: string, message?: string): string {
-  const digits = phone.replace(/\D/g, "");
-  const withCountryCode = digits.startsWith("55") ? digits : `55${digits}`;
-  const base = `https://wa.me/${withCountryCode}`;
+  const base = `https://wa.me/${toWhatsAppDigits(phone)}`;
   return message ? `${base}?text=${encodeURIComponent(message)}` : base;
 }
 

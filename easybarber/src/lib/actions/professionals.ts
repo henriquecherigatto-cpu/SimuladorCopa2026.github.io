@@ -223,3 +223,101 @@ export async function deleteProfessional(
     return { fullyDeleted: false };
   });
 }
+
+const PHOTO_BUCKET = "professional-photos";
+const MAX_PHOTO_BYTES = 3 * 1024 * 1024;
+
+export async function uploadProfessionalPhoto(
+  professionalId: string,
+  formData: FormData,
+): Promise<ActionResult<{ photoUrl: string }>> {
+  return runAction(async () => {
+    const { supabase, companyId, role } = await requireMembership();
+    assertOwner(role);
+
+    const file = formData.get("photo");
+    if (!(file instanceof File) || file.size === 0) {
+      throw new Error("Selecione uma imagem.");
+    }
+    if (!file.type.startsWith("image/")) {
+      throw new Error("Envie um arquivo de imagem (JPG, PNG, etc).");
+    }
+    if (file.size > MAX_PHOTO_BYTES) {
+      throw new Error("A imagem deve ter até 3 MB.");
+    }
+
+    const { data: current } = await supabase
+      .from("professionals")
+      .select("photo_url")
+      .eq("id", professionalId)
+      .single();
+
+    const ext = file.name.includes(".") ? file.name.split(".").pop() : "jpg";
+    const path = `${companyId}/${crypto.randomUUID()}.${ext}`;
+
+    const { error: uploadError } = await supabase.storage
+      .from(PHOTO_BUCKET)
+      .upload(path, file, { contentType: file.type, upsert: false });
+    if (uploadError) throw uploadError;
+
+    const { data: urlData } = supabase.storage.from(PHOTO_BUCKET).getPublicUrl(path);
+
+    const { error: updateError } = await supabase
+      .from("professionals")
+      .update({ photo_url: urlData.publicUrl })
+      .eq("id", professionalId);
+    if (updateError) throw updateError;
+
+    const previousPath = storagePathFromPublicUrl(current?.photo_url, PHOTO_BUCKET);
+    if (previousPath) {
+      await supabase.storage.from(PHOTO_BUCKET).remove([previousPath]);
+    }
+
+    revalidatePath("/profissionais");
+    revalidatePath("/agenda");
+    revalidatePath("/agenda/semana");
+    revalidatePath("/agenda/novo");
+    return { photoUrl: urlData.publicUrl };
+  });
+}
+
+export async function removeProfessionalPhoto(
+  professionalId: string,
+): Promise<ActionResult<undefined>> {
+  return runAction(async () => {
+    const { supabase, role } = await requireMembership();
+    assertOwner(role);
+
+    const { data: current } = await supabase
+      .from("professionals")
+      .select("photo_url")
+      .eq("id", professionalId)
+      .single();
+
+    const { error } = await supabase
+      .from("professionals")
+      .update({ photo_url: null })
+      .eq("id", professionalId);
+    if (error) throw error;
+
+    const previousPath = storagePathFromPublicUrl(current?.photo_url, PHOTO_BUCKET);
+    if (previousPath) {
+      await supabase.storage.from(PHOTO_BUCKET).remove([previousPath]);
+    }
+
+    revalidatePath("/profissionais");
+    revalidatePath("/agenda");
+    revalidatePath("/agenda/semana");
+    revalidatePath("/agenda/novo");
+    return undefined;
+  });
+}
+
+/** Extracts "<companyId>/<file>" back out of a Supabase Storage public URL, for cleanup. */
+function storagePathFromPublicUrl(url: string | null | undefined, bucket: string): string | null {
+  if (!url) return null;
+  const marker = `/object/public/${bucket}/`;
+  const index = url.indexOf(marker);
+  if (index === -1) return null;
+  return url.slice(index + marker.length);
+}

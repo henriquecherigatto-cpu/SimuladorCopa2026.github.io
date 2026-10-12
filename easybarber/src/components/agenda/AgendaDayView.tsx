@@ -111,6 +111,7 @@ export interface ProfessionalChip {
   id: string;
   name: string;
   color: string;
+  photo_url: string | null;
 }
 
 export interface BusinessHoursRow {
@@ -258,7 +259,7 @@ export function AgendaDayView({
                 : undefined
             }
           >
-            <Avatar name={prof.name} color={prof.color} size="sm" />
+            <Avatar name={prof.name} color={prof.color} photoUrl={prof.photo_url} size="sm" />
             {prof.name}
           </button>
         ))}

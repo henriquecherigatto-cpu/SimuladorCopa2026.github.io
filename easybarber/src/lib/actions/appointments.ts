@@ -150,7 +150,7 @@ export interface AppointmentListItem {
   notes: string | null;
   customer: { id: string; name: string; phone: string } | null;
   service: { id: string; name: string; price_cents: number } | null;
-  professional: { id: string; name: string; color: string } | null;
+  professional: { id: string; name: string; color: string; photo_url: string | null } | null;
 }
 
 /**
@@ -169,7 +169,7 @@ export async function listAppointmentsInRange(
     const { data, error } = await supabase
       .from("appointments")
       .select(
-        "id, starts_at, ends_at, status, notes, customer:customers!appointments_customer_id_fkey(id,name,phone), service:services!appointments_service_id_fkey(id,name,price_cents), professional:professionals!appointments_professional_id_fkey(id,name,color)",
+        "id, starts_at, ends_at, status, notes, customer:customers!appointments_customer_id_fkey(id,name,phone), service:services!appointments_service_id_fkey(id,name,price_cents), professional:professionals!appointments_professional_id_fkey(id,name,color,photo_url)",
       )
       .eq("company_id", companyId)
       .gte("starts_at", `${startDate}T00:00:00Z`)

@@ -106,10 +106,27 @@ select test.assert_denied(
 );
 
 -- A real booking, as a genuine anonymous visitor would make it.
-select public.create_public_appointment(
+-- create_public_appointment returns jsonb — id/cancel_token plus the
+-- same display fields get_public_appointment_by_token() would return
+-- for that token (company_name, service_name, professional_name,
+-- starts_at) — not a bare uuid, so the WhatsApp confirmation message
+-- (composed in sendBookingConfirmation(), src/lib/actions/public-booking.ts)
+-- is always built from server-confirmed data, never client-held form state.
+select
+  r.result ->> 'id' as appt_id,
+  r.result ->> 'company_name' as booking_company_name,
+  r.result ->> 'service_name' as booking_service_name,
+  r.result ->> 'professional_name' as booking_professional_name,
+  (r.result ->> 'can_cancel')::boolean as booking_can_cancel
+from (select public.create_public_appointment(
   :'a_slug', :'service_a_id'::uuid, :'professional_a_id'::uuid, current_date + 3, '09:00',
   'Cliente Público', '19988887777', 'cliente.publico@example.com', 'Agendado pelo link público'
-) as appt_id \gset
+) as result) r \gset
+
+select test.assert(:'booking_company_name' = 'Barber 013', 'create_public_appointment''s result includes the correct company_name for the confirmation message');
+select test.assert(:'booking_service_name' = 'Corte de cabelo', 'create_public_appointment''s result includes the correct service_name for the confirmation message');
+select test.assert(:'booking_professional_name' = 'Carlos (A)', 'create_public_appointment''s result includes the correct professional_name for the confirmation message');
+select test.assert(:'booking_can_cancel'::boolean, 'a freshly booked future appointment reports can_cancel = true in create_public_appointment''s own result');
 
 select test.act_as_superuser();
 
@@ -128,10 +145,11 @@ select test.assert(:'cust_phone' = '19988887777', 'a customer row was created fr
 -- create a duplicate — same rule the authenticated flow follows.
 select test.act_as_anon();
 
-select public.create_public_appointment(
+select r.result ->> 'id' as appt_id_2
+from (select public.create_public_appointment(
   :'a_slug', :'service_a_id'::uuid, :'professional_a_id'::uuid, current_date + 4, '09:00',
   'Cliente Público', '19988887777'
-) as appt_id_2 \gset
+) as result) r \gset
 
 select test.act_as_superuser();
 select customer_id from public.appointments where id = :'appt_id_2'::uuid \gset appt2_

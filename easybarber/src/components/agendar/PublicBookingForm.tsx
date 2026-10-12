@@ -4,6 +4,7 @@ import * as React from "react";
 import { format } from "date-fns";
 import { CalendarCheck, CalendarPlus, Clock, Phone, User } from "lucide-react";
 import { Select } from "@/components/ui/Select";
+import { ProfessionalPicker } from "@/components/agendar/ProfessionalPicker";
 import { Input } from "@/components/ui/Input";
 import { Textarea } from "@/components/ui/Textarea";
 import { Button } from "@/components/ui/Button";
@@ -41,7 +42,7 @@ export function PublicBookingForm({
 
   const [errors, setErrors] = React.useState<Record<string, string>>({});
   const [submitting, setSubmitting] = React.useState(false);
-  const [success, setSuccess] = React.useState(false);
+  const [cancelToken, setCancelToken] = React.useState<string | null>(null);
   const [serverError, setServerError] = React.useState<string | null>(null);
 
   const service = services.find((s) => s.id === serviceId);
@@ -124,12 +125,12 @@ export function PublicBookingForm({
       return;
     }
 
-    setSuccess(true);
+    setCancelToken(result.data.cancelToken);
   };
 
   const professional = professionals.find((p) => p.id === professionalId);
 
-  if (success) {
+  if (cancelToken) {
     const startsAt = new Date(`${date}T${time}:00`);
     const googleCalendarLink =
       service &&
@@ -172,11 +173,17 @@ export function PublicBookingForm({
             Adicionar ao Google Agenda
           </a>
         )}
+        <a
+          href={`/cancelar/${cancelToken}`}
+          className="text-xs font-medium text-brand-graphite/50 hover:text-brand-error hover:underline"
+        >
+          Não poderá comparecer? Cancelar este agendamento
+        </a>
         <Button
           variant="secondary"
           fullWidth
           onClick={() => {
-            setSuccess(false);
+            setCancelToken(null);
             setServiceId("");
             setProfessionalIdRaw("");
             setTime("");
@@ -221,20 +228,15 @@ export function PublicBookingForm({
             ))}
           </Select>
 
-          <Select
+          <ProfessionalPicker
             label="Profissional"
             placeholder={serviceId ? "Selecione um profissional" : "Selecione um serviço primeiro"}
+            professionals={eligibleProfessionals}
             value={professionalId}
             error={errors.professional}
             disabled={!serviceId}
-            onChange={(e) => setProfessionalIdRaw(e.target.value)}
-          >
-            {eligibleProfessionals.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.name}
-              </option>
-            ))}
-          </Select>
+            onChange={setProfessionalIdRaw}
+          />
 
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="flex flex-col gap-1.5">

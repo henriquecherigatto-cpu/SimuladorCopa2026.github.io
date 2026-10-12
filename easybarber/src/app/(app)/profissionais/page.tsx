@@ -12,7 +12,7 @@ export default async function ProfissionaisPage() {
       supabase
         .from("professionals")
         .select(
-          "id, name, phone, role_title, color, work_start, work_end, weekly_days_off, professional_services ( service:services ( id, name ) ), professional_breaks:professional_breaks!professional_breaks_professional_id_fkey ( id, start_time, end_time, label ), appointments:appointments!appointments_professional_id_fkey ( count )",
+          "id, name, phone, role_title, color, photo_url, work_start, work_end, weekly_days_off, professional_services ( service:services ( id, name ) ), professional_breaks:professional_breaks!professional_breaks_professional_id_fkey ( id, start_time, end_time, label ), appointments:appointments!appointments_professional_id_fkey ( count )",
         )
         .eq("company_id", companyId)
         .eq("active", true)
