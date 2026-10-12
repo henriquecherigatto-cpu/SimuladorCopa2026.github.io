@@ -18,5 +18,7 @@
 \ir 040_concurrency_conflict.sql
 \echo '=== 050_admin_scope.sql ==='
 \ir 050_admin_scope.sql
+\echo '=== 060_subscription_lifecycle.sql ==='
+\ir 060_subscription_lifecycle.sql
 
 \echo '=== ALL NEGATIVE TESTS PASSED ==='

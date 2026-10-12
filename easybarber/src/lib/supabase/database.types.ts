@@ -727,6 +727,19 @@ export type Database = {
           total_companies: number;
         }[];
       };
+      apply_billing_event: {
+        Args: {
+          p_amount_cents: number;
+          p_company_id: string;
+          p_event_type: string;
+          p_new_period_end?: string;
+          p_provider: string;
+          p_provider_event_id: string;
+          p_raw_payload?: Json;
+          p_status: string;
+        };
+        Returns: Json;
+      };
       create_company_with_owner: {
         Args: { p_address?: string; p_cnpj?: string; p_name: string; p_phone: string };
         Returns: string;
@@ -752,6 +765,14 @@ export type Database = {
       };
       is_platform_admin: { Args: Record<PropertyKey, never>; Returns: boolean };
       professional_id_for_current_user: { Args: { p_company_id: string }; Returns: string };
+      sweep_subscription_lifecycle: {
+        Args: Record<PropertyKey, never>;
+        Returns: {
+          company_id: string;
+          new_status: Database["public"]["Enums"]["subscription_status"];
+          old_status: Database["public"]["Enums"]["subscription_status"];
+        }[];
+      };
       user_company_ids: { Args: Record<PropertyKey, never>; Returns: string[] };
       write_audit_log: {
         Args: {

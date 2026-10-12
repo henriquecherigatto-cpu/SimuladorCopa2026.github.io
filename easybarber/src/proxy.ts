@@ -8,10 +8,17 @@ export function proxy(request: NextRequest) {
 export const config = {
   matcher: [
     /*
-     * Run on every route except static assets and Next's own
-     * internals — auth must be checked everywhere else, including
-     * the root "/" (which itself redirects to /login or /dashboard).
+     * Run on every route except static assets, Next's own internals,
+     * and src/app/api/** — auth must be checked everywhere else,
+     * including the root "/" (which itself redirects to /login or
+     * /dashboard). The api/ exclusion matters: those routes
+     * (billing webhook, billing sweep) are called by a payment
+     * provider and an external scheduler, never by a signed-in
+     * browser session, and authenticate themselves via their own
+     * secret headers (see src/app/api/billing/*). Letting this
+     * session-cookie redirect run on them would send every webhook
+     * delivery to /login instead of the handler.
      */
-    "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
+    "/((?!_next/static|_next/image|favicon.ico|api/|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)",
   ],
 };

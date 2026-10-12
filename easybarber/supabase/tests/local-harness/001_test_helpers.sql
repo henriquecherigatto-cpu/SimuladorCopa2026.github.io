@@ -102,6 +102,24 @@ begin
 end;
 $$;
 
+-- Switches to service_role: no JWT claims at all (service_role never
+-- carries a user identity), just the role itself, which is what lets
+-- it both bypass RLS (service_role is created `bypassrls` in
+-- 000_auth_stub.sql, matching the real Supabase role) and call
+-- functions granted only to service_role (e.g.
+-- public.apply_billing_event). This is what a verified webhook
+-- handler or scheduled sweep route runs as in production.
+create or replace function test.act_as_service_role()
+returns void
+language plpgsql
+as $$
+begin
+  perform set_config('request.jwt.claim.sub', '', false);
+  perform set_config('request.jwt.claim.role', 'service_role', false);
+  perform set_config('role', 'service_role', false);
+end;
+$$;
+
 -- Back to the unrestricted connection role (the harness' own setup
 -- steps, e.g. seeding fixture data, run as this role).
 create or replace function test.act_as_superuser()
