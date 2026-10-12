@@ -20,5 +20,7 @@
 \ir 050_admin_scope.sql
 \echo '=== 060_subscription_lifecycle.sql ==='
 \ir 060_subscription_lifecycle.sql
+\echo '=== 070_public_booking.sql ==='
+\ir 070_public_booking.sql
 
 \echo '=== ALL NEGATIVE TESTS PASSED ==='

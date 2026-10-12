@@ -4,6 +4,14 @@ import type { Database } from "@/lib/supabase/database.types";
 
 const PUBLIC_ROUTES = ["/login", "/cadastro", "/recuperar-senha"];
 
+// Accessible regardless of auth state, and never redirected either
+// way — unlike PUBLIC_ROUTES (login/cadastro/...), which bounce an
+// already-authenticated visitor to /dashboard. /agendar/<slug> is the
+// self-service booking page a barbearia's own clients use; its owner
+// should also be able to open their own link while signed in (e.g.
+// to test it) without being redirected away.
+const ALWAYS_ACCESSIBLE_PREFIXES = ["/agendar/"];
+
 /**
  * Refreshes the Supabase session cookie on every request (so it never
  * silently expires mid-visit) and does an OPTIMISTIC redirect for
@@ -47,11 +55,18 @@ export async function updateSession(request: NextRequest) {
 
   const { pathname } = request.nextUrl;
   const isPublicRoute = PUBLIC_ROUTES.some((route) => pathname === route);
+  const isAlwaysAccessible = ALWAYS_ACCESSIBLE_PREFIXES.some((prefix) =>
+    pathname.startsWith(prefix),
+  );
 
   if (pathname === "/") {
     const url = request.nextUrl.clone();
     url.pathname = isAuthenticated ? "/dashboard" : "/login";
     return NextResponse.redirect(url);
+  }
+
+  if (isAlwaysAccessible) {
+    return response;
   }
 
   if (!isAuthenticated && !isPublicRoute) {

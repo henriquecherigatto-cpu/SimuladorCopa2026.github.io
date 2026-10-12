@@ -10,7 +10,7 @@ export type Database = {
         Row: {
           company_id: string;
           created_at: string;
-          created_by: string;
+          created_by: string | null;
           customer_id: string;
           ends_at: string;
           id: string;
@@ -25,7 +25,7 @@ export type Database = {
         Insert: {
           company_id: string;
           created_at?: string;
-          created_by: string;
+          created_by?: string | null;
           customer_id: string;
           ends_at: string;
           id?: string;
@@ -39,7 +39,7 @@ export type Database = {
         Update: {
           company_id?: string;
           created_at?: string;
-          created_by?: string;
+          created_by?: string | null;
           customer_id?: string;
           ends_at?: string;
           id?: string;
@@ -261,6 +261,7 @@ export type Database = {
           id: string;
           name: string;
           phone: string;
+          slug: string;
           updated_at: string;
         };
         ComputedFields: never;
@@ -272,6 +273,7 @@ export type Database = {
           id?: string;
           name: string;
           phone: string;
+          slug: string;
           updated_at?: string;
         };
         Update: {
@@ -282,6 +284,7 @@ export type Database = {
           id?: string;
           name?: string;
           phone?: string;
+          slug?: string;
           updated_at?: string;
         };
         Relationships: [
@@ -744,6 +747,21 @@ export type Database = {
         Args: { p_address?: string; p_cnpj?: string; p_name: string; p_phone: string };
         Returns: string;
       };
+      create_public_appointment: {
+        Args: {
+          p_customer_email?: string;
+          p_customer_name: string;
+          p_customer_phone: string;
+          p_date: string;
+          p_notes?: string;
+          p_professional_id: string;
+          p_service_id: string;
+          p_slug: string;
+          p_start_time: string;
+        };
+        Returns: string;
+      };
+      generate_company_slug: { Args: { p_name: string }; Returns: string };
       get_available_slots: {
         Args: {
           p_company_id: string;
@@ -756,6 +774,13 @@ export type Database = {
           slot_start: string;
         }[];
       };
+      get_public_available_slots: {
+        Args: { p_date: string; p_professional_id: string; p_service_id: string; p_slug: string };
+        Returns: {
+          slot_start: string;
+        }[];
+      };
+      get_public_booking_page: { Args: { p_slug: string }; Returns: Json };
       has_company_role: {
         Args: {
           p_company_id: string;
