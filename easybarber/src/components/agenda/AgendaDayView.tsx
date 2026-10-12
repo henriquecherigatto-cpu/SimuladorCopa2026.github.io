@@ -17,6 +17,95 @@ import { cn, hhmmToMinutes, minutesToHHMM } from "@/lib/utils";
 
 const SLOT_MINUTES = 30;
 const ROW_HEIGHT = 64; // px per 30-minute slot
+const COLUMN_GAP = 4; // px between side-by-side appointments
+const ROW_OUTER_MARGIN = 8; // px from the day column's own edges
+
+interface PositionedAppointment extends AppointmentListItem {
+  top: number;
+  height: number;
+  col: number;
+  totalCols: number;
+}
+
+/**
+ * Appointments only ever overlap in time across DIFFERENT
+ * professionals (the database forbids one professional double-
+ * booking themselves) — completely normal with more than one barber
+ * working at once. Without this, every appointment block is
+ * positioned at the same full width regardless of others happening
+ * at the same time, so their text stacks directly on top of each
+ * other. This lays out time-overlapping appointments side by side
+ * instead, the same way most calendar day views do: group
+ * appointments into clusters of transitively-overlapping times, then
+ * greedily assign each one the first free column within its cluster.
+ */
+function layoutDayAppointments(
+  items: AppointmentListItem[],
+  openMin: number,
+): PositionedAppointment[] {
+  const withMinutes = items
+    .map((appt) => {
+      const start = new Date(appt.starts_at);
+      const end = new Date(appt.ends_at);
+      return {
+        appt,
+        startMin: start.getHours() * 60 + start.getMinutes(),
+        endMin: end.getHours() * 60 + end.getMinutes(),
+      };
+    })
+    .sort((a, b) => a.startMin - b.startMin || a.endMin - b.endMin);
+
+  const groups: (typeof withMinutes)[] = [];
+  let currentGroup: typeof withMinutes = [];
+  let currentGroupEnd = -Infinity;
+  for (const item of withMinutes) {
+    if (currentGroup.length === 0 || item.startMin < currentGroupEnd) {
+      currentGroup.push(item);
+      currentGroupEnd = Math.max(currentGroupEnd, item.endMin);
+    } else {
+      groups.push(currentGroup);
+      currentGroup = [item];
+      currentGroupEnd = item.endMin;
+    }
+  }
+  if (currentGroup.length > 0) groups.push(currentGroup);
+
+  const result: PositionedAppointment[] = [];
+  for (const group of groups) {
+    const columnEnds: number[] = [];
+    const cols: number[] = [];
+    for (const item of group) {
+      let placed = -1;
+      for (let c = 0; c < columnEnds.length; c++) {
+        if (columnEnds[c] <= item.startMin) {
+          columnEnds[c] = item.endMin;
+          placed = c;
+          break;
+        }
+      }
+      if (placed === -1) {
+        columnEnds.push(item.endMin);
+        placed = columnEnds.length - 1;
+      }
+      cols.push(placed);
+    }
+    const totalCols = columnEnds.length;
+    group.forEach((item, i) => {
+      result.push({
+        ...item.appt,
+        top: ((item.startMin - openMin) / SLOT_MINUTES) * ROW_HEIGHT,
+        height: Math.max(
+          ((item.endMin - item.startMin) / SLOT_MINUTES) * ROW_HEIGHT - 4,
+          28,
+        ),
+        col: cols[i],
+        totalCols,
+      });
+    });
+  }
+
+  return result;
+}
 
 export interface ProfessionalChip {
   id: string;
@@ -224,27 +313,20 @@ export function AgendaDayView({
                   style={{ top: ((m - openMin) / SLOT_MINUTES) * ROW_HEIGHT }}
                 />
               ))}
-              {dayAppointments.map((appt) => {
+              {layoutDayAppointments(dayAppointments, openMin).map((appt) => {
                 const start = new Date(appt.starts_at);
-                const end = new Date(appt.ends_at);
-                const startMin = start.getHours() * 60 + start.getMinutes();
-                const endMin = end.getHours() * 60 + end.getMinutes();
-                const top = ((startMin - openMin) / SLOT_MINUTES) * ROW_HEIGHT;
-                const height = Math.max(
-                  ((endMin - startMin) / SLOT_MINUTES) * ROW_HEIGHT - 4,
-                  28,
-                );
                 const cancelled = appt.status === "cancelado";
                 const color = appt.professional?.color ?? "#FF6B1A";
+                const colWidth = `((100% - ${ROW_OUTER_MARGIN * 2}px - ${(appt.totalCols - 1) * COLUMN_GAP}px) / ${appt.totalCols})`;
                 return (
                   <button
                     key={appt.id}
                     onClick={() => setDetailsAppt(appt)}
                     style={{
-                      top,
-                      height,
-                      left: 8,
-                      right: 8,
+                      top: appt.top,
+                      height: appt.height,
+                      left: `calc(${ROW_OUTER_MARGIN}px + ${appt.col} * (${colWidth} + ${COLUMN_GAP}px))`,
+                      width: `calc(${colWidth})`,
                       borderLeftColor: color,
                       backgroundColor: `${color}14`,
                     }}
