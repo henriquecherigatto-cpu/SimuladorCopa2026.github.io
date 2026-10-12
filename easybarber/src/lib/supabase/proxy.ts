@@ -7,10 +7,11 @@ const PUBLIC_ROUTES = ["/login", "/cadastro", "/recuperar-senha"];
 // Accessible regardless of auth state, and never redirected either
 // way — unlike PUBLIC_ROUTES (login/cadastro/...), which bounce an
 // already-authenticated visitor to /dashboard. /agendar/<slug> is the
-// self-service booking page a barbearia's own clients use; its owner
-// should also be able to open their own link while signed in (e.g.
-// to test it) without being redirected away.
-const ALWAYS_ACCESSIBLE_PREFIXES = ["/agendar/"];
+// self-service booking page a barbearia's own clients use, and
+// /cancelar/<token> is the cancel-by-link page a booking confirmation
+// message points to; the owner should also be able to open either
+// while signed in (e.g. to test it) without being redirected away.
+const ALWAYS_ACCESSIBLE_PREFIXES = ["/agendar/", "/cancelar/"];
 
 /**
  * Refreshes the Supabase session cookie on every request (so it never

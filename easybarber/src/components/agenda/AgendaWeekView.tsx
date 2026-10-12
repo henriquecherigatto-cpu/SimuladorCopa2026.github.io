@@ -162,7 +162,7 @@ export function AgendaWeekView({
                 : undefined
             }
           >
-            <Avatar name={prof.name} color={prof.color} size="sm" />
+            <Avatar name={prof.name} color={prof.color} photoUrl={prof.photo_url} size="sm" />
             {prof.name}
           </button>
         ))}

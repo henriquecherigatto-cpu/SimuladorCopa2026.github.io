@@ -13,14 +13,14 @@ type Tab = "agendar" | "consultar";
 export function PublicAgendarPageClient({
   slug,
   companyName,
-  companyPhone,
+  companyWhatsapp,
   companyAddress,
   services,
   professionals,
 }: {
   slug: string;
   companyName: string;
-  companyPhone: string;
+  companyWhatsapp: string;
   companyAddress: string | null;
   services: PublicService[];
   professionals: PublicProfessional[];
@@ -70,7 +70,9 @@ export function PublicAgendarPageClient({
         <PublicLookupForm slug={slug} />
       )}
 
-      {companyPhone && <WhatsAppFloatingButton phone={companyPhone} companyName={companyName} />}
+      {companyWhatsapp && (
+        <WhatsAppFloatingButton phone={companyWhatsapp} companyName={companyName} />
+      )}
     </>
   );
 }

@@ -25,6 +25,7 @@ export type Database = {
     Tables: {
       appointments: {
         Row: {
+          cancel_token: string;
           company_id: string;
           created_at: string;
           created_by: string | null;
@@ -40,6 +41,7 @@ export type Database = {
         };
         ComputedFields: never;
         Insert: {
+          cancel_token?: string;
           company_id: string;
           created_at?: string;
           created_by?: string | null;
@@ -54,6 +56,7 @@ export type Database = {
           updated_at?: string;
         };
         Update: {
+          cancel_token?: string;
           company_id?: string;
           created_at?: string;
           created_by?: string | null;
@@ -280,6 +283,7 @@ export type Database = {
           phone: string;
           slug: string;
           updated_at: string;
+          whatsapp_number: string | null;
         };
         ComputedFields: never;
         Insert: {
@@ -292,6 +296,7 @@ export type Database = {
           phone: string;
           slug: string;
           updated_at?: string;
+          whatsapp_number?: string | null;
         };
         Update: {
           address?: string | null;
@@ -303,6 +308,7 @@ export type Database = {
           phone?: string;
           slug?: string;
           updated_at?: string;
+          whatsapp_number?: string | null;
         };
         Relationships: [
           {
@@ -529,6 +535,7 @@ export type Database = {
           id: string;
           name: string;
           phone: string | null;
+          photo_url: string | null;
           profile_id: string | null;
           role_title: string;
           updated_at: string;
@@ -545,6 +552,7 @@ export type Database = {
           id?: string;
           name: string;
           phone?: string | null;
+          photo_url?: string | null;
           profile_id?: string | null;
           role_title?: string;
           updated_at?: string;
@@ -560,6 +568,7 @@ export type Database = {
           id?: string;
           name?: string;
           phone?: string | null;
+          photo_url?: string | null;
           profile_id?: string | null;
           role_title?: string;
           updated_at?: string;
@@ -813,6 +822,7 @@ export type Database = {
         };
         Returns: Json;
       };
+      cancel_appointment_by_token: { Args: { p_token: string }; Returns: Json };
       create_company_with_owner: {
         Args: { p_address?: string; p_cnpj?: string; p_name: string; p_phone: string };
         Returns: string;
@@ -829,7 +839,7 @@ export type Database = {
           p_slug: string;
           p_start_time: string;
         };
-        Returns: string;
+        Returns: Json;
       };
       generate_company_slug: { Args: { p_name: string }; Returns: string };
       get_available_slots: {
@@ -844,6 +854,7 @@ export type Database = {
           slot_start: string;
         }[];
       };
+      get_public_appointment_by_token: { Args: { p_token: string }; Returns: Json };
       get_public_available_slots: {
         Args: { p_date: string; p_professional_id: string; p_service_id: string; p_slug: string };
         Returns: {

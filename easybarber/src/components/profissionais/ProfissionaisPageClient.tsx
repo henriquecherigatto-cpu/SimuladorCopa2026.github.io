@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { useRouter } from "next/navigation";
-import { ChevronRight, Phone, Plus, UserCog } from "lucide-react";
+import { Camera, ChevronRight, Phone, Plus, UserCog } from "lucide-react";
 import { PageHeader } from "@/components/PageHeader";
 import { Button } from "@/components/ui/Button";
 import { Avatar } from "@/components/ui/Avatar";
@@ -19,8 +19,10 @@ import {
   createProfessional,
   deleteProfessional,
   deleteProfessionalBreak,
+  removeProfessionalPhoto,
   setProfessionalServices,
   updateProfessional,
+  uploadProfessionalPhoto,
   type ProfessionalInput,
 } from "@/lib/actions/professionals";
 
@@ -33,6 +35,7 @@ export interface ProfessionalRow {
   phone: string | null;
   role_title: string;
   color: string;
+  photo_url: string | null;
   work_start: string;
   work_end: string;
   weekly_days_off: number[];
@@ -116,7 +119,7 @@ export function ProfissionaisPageClient({
                   onClick={() => setDetailsId(p.id)}
                   className="flex w-full items-center gap-3 px-4 py-3.5 text-left hover:bg-brand-surface sm:px-5"
                 >
-                  <Avatar name={p.name} color={p.color} size="md" />
+                  <Avatar name={p.name} color={p.color} photoUrl={p.photo_url} size="md" />
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-sm font-semibold text-brand-graphite">
                       {p.name}
@@ -322,6 +325,39 @@ function ProfessionalDetailsBody({
   const [busy, setBusy] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
 
+  const photoInputRef = React.useRef<HTMLInputElement>(null);
+  const [photoBusy, setPhotoBusy] = React.useState(false);
+
+  const handlePhotoChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+
+    setPhotoBusy(true);
+    setError(null);
+    const formData = new FormData();
+    formData.set("photo", file);
+    const result = await uploadProfessionalPhoto(professional.id, formData);
+    setPhotoBusy(false);
+    if (!result.ok) {
+      setError(result.error);
+      return;
+    }
+    onChanged("Foto atualizada.");
+  };
+
+  const handleRemovePhoto = async () => {
+    setPhotoBusy(true);
+    setError(null);
+    const result = await removeProfessionalPhoto(professional.id);
+    setPhotoBusy(false);
+    if (!result.ok) {
+      setError(result.error);
+      return;
+    }
+    onChanged("Foto removida.");
+  };
+
   const [editingBreaks, setEditingBreaks] = React.useState(false);
   const [newBreakStart, setNewBreakStart] = React.useState("");
   const [newBreakEnd, setNewBreakEnd] = React.useState("");
@@ -506,7 +542,33 @@ function ProfessionalDetailsBody({
         </div>
       ) : (
         <div className="flex items-center gap-3">
-          <Avatar name={professional.name} color={professional.color} size="lg" />
+          <div className="relative shrink-0">
+            <Avatar
+              name={professional.name}
+              color={professional.color}
+              photoUrl={professional.photo_url}
+              size="lg"
+            />
+            {canManage && (
+              <button
+                type="button"
+                onClick={() => photoInputRef.current?.click()}
+                disabled={photoBusy}
+                aria-label="Alterar foto"
+                title="Alterar foto"
+                className="absolute -bottom-1 -right-1 flex size-6 items-center justify-center rounded-full bg-brand-orange text-white shadow hover:bg-brand-orange-dark disabled:opacity-50"
+              >
+                <Camera className="size-3.5" />
+              </button>
+            )}
+            <input
+              ref={photoInputRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={handlePhotoChange}
+            />
+          </div>
           <div className="min-w-0 flex-1">
             <p className="text-base font-semibold text-brand-graphite">
               {professional.name}
@@ -516,6 +578,16 @@ function ProfessionalDetailsBody({
               <p className="flex items-center gap-1.5 text-sm text-brand-graphite/60">
                 <Phone className="size-3.5" /> {professional.phone}
               </p>
+            )}
+            {canManage && professional.photo_url && (
+              <button
+                type="button"
+                onClick={handleRemovePhoto}
+                disabled={photoBusy}
+                className="text-xs font-medium text-brand-error hover:underline disabled:opacity-50"
+              >
+                Remover foto
+              </button>
             )}
           </div>
           {canManage && (

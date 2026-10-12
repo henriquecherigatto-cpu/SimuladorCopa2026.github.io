@@ -12,7 +12,7 @@ export default async function AgendaSemanaPage() {
 
   const { data: professionals } = await supabase
     .from("professionals")
-    .select("id, name, color")
+    .select("id, name, color, photo_url")
     .eq("company_id", companyId)
     .eq("active", true)
     .order("name");

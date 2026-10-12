@@ -1,7 +1,10 @@
 "use server";
 
+import { format } from "date-fns";
+import { ptBR } from "date-fns/locale";
 import { createClient } from "@/lib/supabase/server";
 import type { ActionResult } from "@/lib/actions/action-result";
+import { getWhatsAppProvider } from "@/lib/whatsapp/provider";
 
 /**
  * The public, no-login booking flow (/agendar/<slug>). Every call
@@ -31,11 +34,18 @@ export interface PublicProfessional {
   id: string;
   name: string;
   color: string;
+  photo_url: string | null;
   service_ids: string[];
 }
 
 export interface PublicBookingPage {
-  company: { id: string; name: string; address: string | null; phone: string } | null;
+  company: {
+    id: string;
+    name: string;
+    address: string | null;
+    phone: string;
+    whatsapp_number: string;
+  } | null;
   services: PublicService[];
   professionals: PublicProfessional[];
 }
@@ -175,9 +185,14 @@ export async function fetchPublicCustomerAppointments(input: {
   }
 }
 
+export interface PublicBookingResult extends PublicAppointmentSummary {
+  id: string;
+  cancelToken: string;
+}
+
 export async function createPublicBooking(
   input: CreatePublicBookingInput,
-): Promise<ActionResult<{ id: string }>> {
+): Promise<ActionResult<PublicBookingResult>> {
   try {
     if (!input.customerName.trim()) throw new Error("name is required");
     if (!input.customerPhone.trim()) throw new Error("phone is required");
@@ -199,8 +214,129 @@ export async function createPublicBooking(
     });
     if (error) throw error;
 
-    return { ok: true, data: { id: data as string } };
+    // create_public_appointment() returns id/cancel_token merged with
+    // the same display fields get_public_appointment_by_token() would
+    // return for that token — toAppointmentSummary() picks those out,
+    // so the confirmation message is built from server-confirmed data
+    // (see sendBookingConfirmation()), never client-held form state.
+    const raw = data as { id: string; cancel_token: string };
+    const result: PublicBookingResult = {
+      id: raw.id,
+      cancelToken: raw.cancel_token,
+      ...toAppointmentSummary(data),
+    };
+
+    // Best-effort: a WhatsApp delivery failure (no credentials
+    // configured yet, the provider is down, an invalid number) must
+    // never undo a booking that already succeeded in the database.
+    // The customer still gets their confirmation on the success
+    // screen either way — this is a courtesy on top of that, not the
+    // source of truth.
+    await sendBookingConfirmation(input.customerPhone, result).catch((error) => {
+      console.error("Failed to send WhatsApp booking confirmation:", error);
+    });
+
+    return { ok: true, data: result };
   } catch (error) {
     return { ok: false, error: friendlyPublicError(error) };
+  }
+}
+
+async function sendBookingConfirmation(
+  customerPhone: string,
+  booking: PublicBookingResult,
+): Promise<void> {
+  const provider = getWhatsAppProvider();
+  if (!provider.isConfigured()) return;
+  if (!booking.found || !booking.startsAt) return;
+
+  const startsAt = new Date(booking.startsAt);
+  const cancelUrl = `${process.env.NEXT_PUBLIC_APP_URL}/cancelar/${booking.cancelToken}`;
+
+  const body = [
+    `Olá! Seu agendamento na ${booking.companyName} está confirmado:`,
+    `${booking.serviceName} com ${booking.professionalName}`,
+    format(startsAt, "EEEE, d 'de' MMMM 'às' HH:mm", { locale: ptBR }) + ".",
+    "",
+    `Não poderá comparecer? Cancele por aqui: ${cancelUrl}`,
+  ].join("\n");
+
+  const result = await provider.sendMessage({ to: customerPhone, body });
+  if (!result.ok) {
+    console.error(`WhatsApp confirmation send failed (${provider.name}):`, result.error);
+  }
+}
+
+export interface PublicAppointmentSummary {
+  found: boolean;
+  companyName?: string;
+  serviceName?: string;
+  professionalName?: string;
+  startsAt?: string;
+  status?: "agendado" | "confirmado" | "concluido" | "cancelado";
+  canCancel?: boolean;
+}
+
+function toAppointmentSummary(raw: unknown): PublicAppointmentSummary {
+  const r = (raw ?? {}) as Partial<{
+    found: boolean;
+    company_name: string;
+    service_name: string;
+    professional_name: PublicAppointmentSummary["status"];
+    starts_at: string;
+    status: PublicAppointmentSummary["status"];
+    can_cancel: boolean;
+  }>;
+  if (!r.found) return { found: false };
+  return {
+    found: true,
+    companyName: r.company_name,
+    serviceName: r.service_name,
+    professionalName: r.professional_name as string | undefined,
+    startsAt: r.starts_at,
+    status: r.status,
+    canCancel: r.can_cancel,
+  };
+}
+
+/**
+ * Read-only: safe to call on a bare page visit (e.g. a messaging
+ * app's link-preview bot hitting the cancel link before a human
+ * does) since it never changes anything. A malformed or unknown
+ * token both just come back as { found: false } — never an error —
+ * so the cancel page can't be used to probe which tokens are real.
+ */
+export async function getPublicAppointmentByToken(
+  token: string,
+): Promise<ActionResult<PublicAppointmentSummary>> {
+  try {
+    const supabase = await createClient();
+    const { data, error } = await supabase.rpc("get_public_appointment_by_token", {
+      p_token: token,
+    });
+    if (error) throw error;
+    return { ok: true, data: toAppointmentSummary(data) };
+  } catch {
+    return { ok: true, data: { found: false } };
+  }
+}
+
+/**
+ * The only way an anonymous visitor can cancel their own appointment
+ * — only ever called from an explicit button click (see
+ * CancelAppointmentClient), never on page load.
+ */
+export async function cancelPublicAppointment(
+  token: string,
+): Promise<ActionResult<PublicAppointmentSummary>> {
+  try {
+    const supabase = await createClient();
+    const { data, error } = await supabase.rpc("cancel_appointment_by_token", {
+      p_token: token,
+    });
+    if (error) throw error;
+    return { ok: true, data: toAppointmentSummary(data) };
+  } catch {
+    return { ok: true, data: { found: false } };
   }
 }

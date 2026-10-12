@@ -45,7 +45,7 @@ export default async function AgendarPage({
         <PublicAgendarPageClient
           slug={slug}
           companyName={company.name}
-          companyPhone={company.phone}
+          companyWhatsapp={company.whatsapp_number}
           companyAddress={company.address}
           services={services}
           professionals={professionals}

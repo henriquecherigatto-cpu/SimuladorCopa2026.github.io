@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   Bell,
   Building2,
@@ -12,6 +13,7 @@ import {
   Lock,
   type LucideIcon,
   Mail,
+  MessageCircle,
   Palette,
   Phone,
   SlidersHorizontal,
@@ -25,8 +27,17 @@ import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
 import { Alert } from "@/components/ui/Alert";
 import { Switch } from "@/components/ui/Switch";
-import { businessHours as initialBusinessHours, demoCompany } from "@/lib/mock-data";
+import { businessHours as initialBusinessHours } from "@/lib/mock-data";
+import { updateCompanySettings } from "@/lib/actions/companies";
 import type { BusinessHours } from "@/types";
+
+interface CompanyRow {
+  id: string;
+  name: string;
+  phone: string;
+  whatsapp_number: string | null;
+  address: string | null;
+}
 
 type SectionKey =
   | "company"
@@ -36,8 +47,15 @@ type SectionKey =
   | "security"
   | "help";
 
-export function ConfiguracoesPageClient() {
-  const [company, setCompany] = React.useState(demoCompany);
+export function ConfiguracoesPageClient({
+  company: initialCompany,
+  canManage,
+}: {
+  company: CompanyRow;
+  canManage: boolean;
+}) {
+  const router = useRouter();
+  const [company, setCompany] = React.useState(initialCompany);
   const [hours, setHours] = React.useState<BusinessHours[]>(initialBusinessHours);
   const [open, setOpen] = React.useState<SectionKey | null>(null);
   const [savedMessage, setSavedMessage] = React.useState<string | null>(null);
@@ -111,10 +129,12 @@ export function ConfiguracoesPageClient() {
       <CompanyModal
         open={open === "company"}
         company={company}
+        canManage={canManage}
         onClose={() => setOpen(null)}
         onSave={(data) => {
           setCompany((c) => ({ ...c, ...data }));
           flashSaved("Dados da barbearia atualizados.");
+          router.refresh();
         }}
       />
       <BusinessHoursModal
@@ -201,51 +221,105 @@ function SettingsRow({
 function CompanyModal({
   open,
   company,
+  canManage,
   onClose,
   onSave,
 }: {
   open: boolean;
-  company: typeof demoCompany;
+  company: CompanyRow;
+  canManage: boolean;
   onClose: () => void;
-  onSave: (data: Partial<typeof demoCompany>) => void;
+  onSave: (data: Partial<CompanyRow>) => void;
 }) {
   return (
     <Modal open={open} onClose={onClose} title="Dados da barbearia">
-      {open && <CompanyFormFields company={company} onSave={onSave} />}
+      {open && (
+        <CompanyFormFields company={company} canManage={canManage} onSave={onSave} />
+      )}
     </Modal>
   );
 }
 
 function CompanyFormFields({
   company,
+  canManage,
   onSave,
 }: {
-  company: typeof demoCompany;
-  onSave: (data: Partial<typeof demoCompany>) => void;
+  company: CompanyRow;
+  canManage: boolean;
+  onSave: (data: Partial<CompanyRow>) => void;
 }) {
   const [name, setName] = React.useState(company.name);
   const [phone, setPhone] = React.useState(company.phone);
+  const [whatsappNumber, setWhatsappNumber] = React.useState(company.whatsapp_number ?? "");
   const [address, setAddress] = React.useState(company.address ?? "");
+  const [error, setError] = React.useState<string | null>(null);
+  const [submitting, setSubmitting] = React.useState(false);
+
+  const onSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!canManage) return;
+    setError(null);
+    setSubmitting(true);
+    const result = await updateCompanySettings({
+      name,
+      phone,
+      whatsappNumber,
+      address,
+    });
+    setSubmitting(false);
+    if (!result.ok) {
+      setError(result.error);
+      return;
+    }
+    onSave({
+      name: name.trim(),
+      phone: phone.trim(),
+      whatsapp_number: whatsappNumber.trim() || null,
+      address: address.trim() || null,
+    });
+  };
 
   return (
-    <form
-      onSubmit={(e) => {
-        e.preventDefault();
-        onSave({ name, phone, address });
-      }}
-      className="flex flex-col gap-4"
-    >
-      <Input label="Nome da barbearia" value={name} onChange={(e) => setName(e.target.value)} />
+    <form onSubmit={onSubmit} className="flex flex-col gap-4">
+      {error && <Alert variant="error">{error}</Alert>}
+      {!canManage && (
+        <Alert variant="info">Apenas o proprietário pode alterar os dados da barbearia.</Alert>
+      )}
+      <Input
+        label="Nome da barbearia"
+        value={name}
+        onChange={(e) => setName(e.target.value)}
+        disabled={!canManage}
+      />
       <Input
         label="Telefone"
         leftIcon={<Phone className="size-4" />}
         value={phone}
         onChange={(e) => setPhone(e.target.value)}
+        disabled={!canManage}
       />
-      <Input label="Endereço" value={address} onChange={(e) => setAddress(e.target.value)} />
-      <Button type="submit" fullWidth>
-        Salvar alterações
-      </Button>
+      <Input
+        label="Número do WhatsApp"
+        type="tel"
+        leftIcon={<MessageCircle className="size-4" />}
+        value={whatsappNumber}
+        onChange={(e) => setWhatsappNumber(e.target.value)}
+        placeholder="(19) 99999-9999"
+        hint="Usado no botão de WhatsApp da página pública e nas confirmações enviadas aos clientes. Se deixar em branco, usamos o telefone acima."
+        disabled={!canManage}
+      />
+      <Input
+        label="Endereço"
+        value={address}
+        onChange={(e) => setAddress(e.target.value)}
+        disabled={!canManage}
+      />
+      {canManage && (
+        <Button type="submit" fullWidth loading={submitting}>
+          Salvar alterações
+        </Button>
+      )}
     </form>
   );
 }
