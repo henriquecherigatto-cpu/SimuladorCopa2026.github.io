@@ -6,8 +6,8 @@ import { Clock, Plus, Scissors } from "lucide-react";
 import { PageHeader } from "@/components/PageHeader";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
-import { Badge } from "@/components/ui/StatusBadge";
 import { Modal } from "@/components/ui/Modal";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { Input } from "@/components/ui/Input";
 import { Textarea } from "@/components/ui/Textarea";
 import { Alert } from "@/components/ui/Alert";
@@ -15,7 +15,7 @@ import { EmptyState } from "@/components/ui/EmptyState";
 import { formatCurrencyBRL } from "@/lib/utils";
 import {
   createService,
-  setServiceActive,
+  deleteService,
   updateService,
   type ServiceInput,
 } from "@/lib/actions/services";
@@ -26,7 +26,6 @@ export interface ServiceRow {
   description: string | null;
   duration_min: number;
   price_cents: number;
-  active: boolean;
   professional_services: { professional: { id: string; name: string } | null }[];
 }
 
@@ -41,9 +40,11 @@ export function ServicosPageClient({
   const [addOpen, setAddOpen] = React.useState(false);
   const [editId, setEditId] = React.useState<string | null>(null);
   const [notice, setNotice] = React.useState<string | null>(null);
-  const [togglingId, setTogglingId] = React.useState<string | null>(null);
+  const [deleteId, setDeleteId] = React.useState<string | null>(null);
+  const [deleting, setDeleting] = React.useState(false);
 
   const editingService = initialServices.find((s) => s.id === editId) ?? null;
+  const serviceToDelete = initialServices.find((s) => s.id === deleteId) ?? null;
 
   const flash = (message: string) => {
     setNotice(message);
@@ -59,24 +60,29 @@ export function ServicosPageClient({
     return null;
   };
 
-  const toggleActive = async (service: ServiceRow) => {
-    setTogglingId(service.id);
-    const result = await setServiceActive(service.id, !service.active);
-    setTogglingId(null);
+  const handleDelete = async () => {
+    if (!serviceToDelete) return;
+    setDeleting(true);
+    const result = await deleteService(serviceToDelete.id);
+    setDeleting(false);
+    setDeleteId(null);
     if (!result.ok) {
       flash(result.error);
       return;
     }
+    flash(
+      result.data.fullyDeleted
+        ? "Serviço excluído."
+        : "Serviço removido. Como ele já tem agendamentos no histórico, os registros foram preservados.",
+    );
     router.refresh();
   };
-
-  const activeCount = initialServices.filter((s) => s.active).length;
 
   return (
     <div className="flex flex-col gap-5">
       <PageHeader
         title="Serviços"
-        description={`${activeCount} ativos de ${initialServices.length} cadastrados`}
+        description={`${initialServices.length} serviços cadastrados`}
         action={
           canManage && (
             <Button icon={<Plus className="size-4" />} onClick={() => setAddOpen(true)}>
@@ -120,21 +126,21 @@ export function ServicosPageClient({
                 </div>
                 <div className="flex shrink-0 items-center gap-2">
                   {canManage && (
-                    <button
-                      onClick={() => setEditId(s.id)}
-                      className="text-xs font-medium text-brand-orange hover:underline"
-                    >
-                      Editar
-                    </button>
+                    <>
+                      <button
+                        onClick={() => setEditId(s.id)}
+                        className="text-xs font-medium text-brand-orange hover:underline"
+                      >
+                        Editar
+                      </button>
+                      <button
+                        onClick={() => setDeleteId(s.id)}
+                        className="text-xs font-medium text-brand-error hover:underline"
+                      >
+                        Excluir
+                      </button>
+                    </>
                   )}
-                  <button
-                    onClick={() => canManage && toggleActive(s)}
-                    disabled={!canManage || togglingId === s.id}
-                  >
-                    <Badge variant={s.active ? "success" : "neutral"}>
-                      {s.active ? "Ativo" : "Inativo"}
-                    </Badge>
-                  </button>
                 </div>
               </div>
 
@@ -180,6 +186,14 @@ export function ServicosPageClient({
           flash("Serviço atualizado com sucesso.");
           router.refresh();
         }}
+      />
+      <ConfirmDialog
+        open={!!serviceToDelete}
+        title="Excluir serviço"
+        description={`Tem certeza que deseja excluir "${serviceToDelete?.name}"? Esta ação não pode ser desfeita.`}
+        busy={deleting}
+        onConfirm={handleDelete}
+        onClose={() => setDeleteId(null)}
       />
     </div>
   );

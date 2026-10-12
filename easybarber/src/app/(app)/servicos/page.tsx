@@ -10,9 +10,10 @@ export default async function ServicosPage() {
   const { data: services, error } = await supabase
     .from("services")
     .select(
-      "id, name, description, duration_min, price_cents, active, professional_services ( professional:professionals ( id, name ) )",
+      "id, name, description, duration_min, price_cents, professional_services ( professional:professionals ( id, name ) )",
     )
     .eq("company_id", companyId)
+    .eq("active", true)
     .order("created_at", { ascending: false });
 
   if (error) throw error;
