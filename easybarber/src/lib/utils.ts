@@ -31,3 +31,15 @@ export function hhmmToMinutes(hhmm: string): number {
   const [h, m] = hhmm.split(":").map(Number);
   return h * 60 + m;
 }
+
+/**
+ * Builds a wa.me deep link that opens a chat with the given phone
+ * number. Assumes a Brazilian number (prefixes the 55 country code
+ * when missing) since that's the only market this app serves today.
+ */
+export function buildWhatsAppLink(phone: string, message?: string): string {
+  const digits = phone.replace(/\D/g, "");
+  const withCountryCode = digits.startsWith("55") ? digits : `55${digits}`;
+  const base = `https://wa.me/${withCountryCode}`;
+  return message ? `${base}?text=${encodeURIComponent(message)}` : base;
+}

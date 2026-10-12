@@ -781,6 +781,17 @@ export type Database = {
         }[];
       };
       get_public_booking_page: { Args: { p_slug: string }; Returns: Json };
+      get_public_customer_appointments: {
+        Args: { p_phone: string; p_slug: string };
+        Returns: {
+          ends_at: string;
+          id: string;
+          professional_name: string;
+          service_name: string;
+          starts_at: string;
+          status: Database["public"]["Enums"]["appointment_status"];
+        }[];
+      };
       has_company_role: {
         Args: {
           p_company_id: string;

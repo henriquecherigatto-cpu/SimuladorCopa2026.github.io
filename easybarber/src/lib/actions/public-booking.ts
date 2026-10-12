@@ -138,6 +138,43 @@ export interface CreatePublicBookingInput {
   notes?: string;
 }
 
+export interface PublicCustomerAppointment {
+  id: string;
+  starts_at: string;
+  ends_at: string;
+  status: "agendado" | "confirmado" | "concluido" | "cancelado";
+  service_name: string;
+  professional_name: string;
+}
+
+/**
+ * "Consultar meu agendamento" — a visitor looks up their own bookings
+ * by phone number, no login. Scoped to one company via the slug;
+ * get_public_customer_appointments() never returns another company's
+ * appointments even if the same phone belongs to a customer there too.
+ */
+export async function fetchPublicCustomerAppointments(input: {
+  slug: string;
+  phone: string;
+}): Promise<ActionResult<PublicCustomerAppointment[]>> {
+  try {
+    if (!input.phone.trim()) {
+      return { ok: true, data: [] };
+    }
+
+    const supabase = await createClient();
+    const { data, error } = await supabase.rpc("get_public_customer_appointments", {
+      p_slug: input.slug,
+      p_phone: input.phone.trim(),
+    });
+    if (error) throw error;
+
+    return { ok: true, data: data ?? [] };
+  } catch (error) {
+    return { ok: false, error: friendlyPublicError(error) };
+  }
+}
+
 export async function createPublicBooking(
   input: CreatePublicBookingInput,
 ): Promise<ActionResult<{ id: string }>> {
