@@ -80,22 +80,43 @@ export async function updateService(
   });
 }
 
-export async function setServiceActive(
+/**
+ * Deletes a service outright when it's safe to (no appointment ever
+ * referenced it — appointments.service_id is ON DELETE RESTRICT, by
+ * design, so appointment history can never silently disappear). When
+ * that FK blocks the delete, falls back to the existing soft-delete
+ * (active = false) instead of surfacing a confusing database error —
+ * from the owner's point of view the service is gone from their
+ * catalogue either way.
+ */
+export async function deleteService(
   serviceId: string,
-  active: boolean,
-): Promise<ActionResult<undefined>> {
+): Promise<ActionResult<{ fullyDeleted: boolean }>> {
   return runAction(async () => {
     const { supabase, role } = await requireMembership();
     assertOwner(role);
 
-    const { error } = await supabase
+    const { error: deleteError } = await supabase
       .from("services")
-      .update({ active })
+      .delete()
       .eq("id", serviceId);
 
-    if (error) throw error;
+    if (!deleteError) {
+      revalidatePath("/servicos");
+      revalidatePath("/agenda/novo");
+      return { fullyDeleted: true };
+    }
+
+    if (deleteError.code !== "23503") throw deleteError;
+
+    const { error: deactivateError } = await supabase
+      .from("services")
+      .update({ active: false })
+      .eq("id", serviceId);
+    if (deactivateError) throw deactivateError;
+
     revalidatePath("/servicos");
     revalidatePath("/agenda/novo");
-    return undefined;
+    return { fullyDeleted: false };
   });
 }

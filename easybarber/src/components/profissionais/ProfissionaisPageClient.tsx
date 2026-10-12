@@ -2,13 +2,14 @@
 
 import * as React from "react";
 import { useRouter } from "next/navigation";
-import { Phone, Plus, UserCog } from "lucide-react";
+import { ChevronRight, Phone, Plus, UserCog } from "lucide-react";
 import { PageHeader } from "@/components/PageHeader";
 import { Button } from "@/components/ui/Button";
 import { Avatar } from "@/components/ui/Avatar";
 import { Card } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/StatusBadge";
 import { Modal } from "@/components/ui/Modal";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { Input } from "@/components/ui/Input";
 import { Alert } from "@/components/ui/Alert";
 import { EmptyState } from "@/components/ui/EmptyState";
@@ -16,8 +17,8 @@ import { cn } from "@/lib/utils";
 import {
   addProfessionalBreak,
   createProfessional,
+  deleteProfessional,
   deleteProfessionalBreak,
-  setProfessionalActive,
   setProfessionalServices,
   updateProfessional,
   type ProfessionalInput,
@@ -32,7 +33,6 @@ export interface ProfessionalRow {
   phone: string | null;
   role_title: string;
   color: string;
-  active: boolean;
   work_start: string;
   work_end: string;
   weekly_days_off: number[];
@@ -76,13 +76,11 @@ export function ProfissionaisPageClient({
     return null;
   };
 
-  const activeCount = initialProfessionals.filter((p) => p.active).length;
-
   return (
     <div className="flex flex-col gap-5">
       <PageHeader
         title="Profissionais"
-        description={`${activeCount} ativos de ${initialProfessionals.length} cadastrados`}
+        description={`${initialProfessionals.length} profissionais cadastrados`}
         action={
           canManage && (
             <Button icon={<Plus className="size-4" />} onClick={() => setAddOpen(true)}>
@@ -127,9 +125,7 @@ export function ProfissionaisPageClient({
                       {p.role_title} · {p.appointments[0]?.count ?? 0} agendamentos
                     </p>
                   </div>
-                  <Badge variant={p.active ? "success" : "neutral"}>
-                    {p.active ? "Ativo" : "Inativo"}
-                  </Badge>
+                  <ChevronRight className="size-4 shrink-0 text-brand-graphite/30" />
                 </button>
               </li>
             ))}
@@ -378,6 +374,27 @@ function ProfessionalDetailsBody({
     );
   };
 
+  const [confirmDeleteOpen, setConfirmDeleteOpen] = React.useState(false);
+  const [deleting, setDeleting] = React.useState(false);
+
+  const handleDelete = async () => {
+    setDeleting(true);
+    const result = await deleteProfessional(professional.id);
+    setDeleting(false);
+    if (!result.ok) {
+      setError(result.error);
+      setConfirmDeleteOpen(false);
+      return;
+    }
+    setConfirmDeleteOpen(false);
+    onClose();
+    onChanged(
+      result.data.fullyDeleted
+        ? "Profissional excluído."
+        : "Profissional removido. Como ele já tem agendamentos no histórico, os registros foram preservados.",
+    );
+  };
+
   const saveInfo = async () => {
     if (!name.trim()) {
       setError("Informe o nome do profissional.");
@@ -417,21 +434,6 @@ function ProfessionalDetailsBody({
     }
     setEditingServices(false);
     onChanged("Serviços do profissional atualizados.");
-  };
-
-  const toggleActive = async () => {
-    setBusy(true);
-    const result = await setProfessionalActive(professional.id, !professional.active);
-    setBusy(false);
-    if (!result.ok) {
-      setError(result.error);
-      return;
-    }
-    onChanged(
-      professional.active
-        ? "Profissional inativado."
-        : "Profissional reativado.",
-    );
   };
 
   return (
@@ -692,19 +694,18 @@ function ProfessionalDetailsBody({
         <div className="flex items-center justify-between rounded-xl border border-black/10 p-3">
           <div>
             <p className="text-sm font-medium text-brand-graphite">
-              {professional.active ? "Profissional ativo" : "Profissional inativo"}
+              Excluir profissional
             </p>
             <p className="text-xs text-brand-graphite/50">
-              Inativar não apaga o histórico de agendamentos.
+              Remove {professional.name} da sua equipe.
             </p>
           </div>
           <Button
             size="sm"
-            variant={professional.active ? "danger" : "secondary"}
-            loading={busy}
-            onClick={toggleActive}
+            variant="danger"
+            onClick={() => setConfirmDeleteOpen(true)}
           >
-            {professional.active ? "Inativar" : "Reativar"}
+            Excluir
           </Button>
         </div>
       )}
@@ -712,6 +713,15 @@ function ProfessionalDetailsBody({
       <Button variant="secondary" fullWidth onClick={onClose}>
         Fechar
       </Button>
+
+      <ConfirmDialog
+        open={confirmDeleteOpen}
+        title="Excluir profissional"
+        description={`Tem certeza que deseja excluir ${professional.name}? Esta ação não pode ser desfeita.`}
+        busy={deleting}
+        onConfirm={handleDelete}
+        onClose={() => setConfirmDeleteOpen(false)}
+      />
     </div>
   );
 }

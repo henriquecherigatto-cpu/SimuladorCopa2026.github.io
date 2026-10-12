@@ -183,22 +183,43 @@ export async function deleteProfessionalBreak(
   });
 }
 
-export async function setProfessionalActive(
+/**
+ * Deletes a professional outright when it's safe to (no appointment
+ * ever referenced them — appointments.professional_id is ON DELETE
+ * RESTRICT, by design, so appointment history can never silently
+ * disappear). When that FK blocks the delete, falls back to the
+ * existing soft-delete (active = false) instead of surfacing a
+ * confusing database error — from the owner's point of view the
+ * professional is gone from their roster either way.
+ */
+export async function deleteProfessional(
   professionalId: string,
-  active: boolean,
-): Promise<ActionResult<undefined>> {
+): Promise<ActionResult<{ fullyDeleted: boolean }>> {
   return runAction(async () => {
     const { supabase, role } = await requireMembership();
     assertOwner(role);
 
-    const { error } = await supabase
+    const { error: deleteError } = await supabase
       .from("professionals")
-      .update({ active })
+      .delete()
       .eq("id", professionalId);
 
-    if (error) throw error;
+    if (!deleteError) {
+      revalidatePath("/profissionais");
+      revalidatePath("/agenda/novo");
+      return { fullyDeleted: true };
+    }
+
+    if (deleteError.code !== "23503") throw deleteError;
+
+    const { error: deactivateError } = await supabase
+      .from("professionals")
+      .update({ active: false })
+      .eq("id", professionalId);
+    if (deactivateError) throw deactivateError;
+
     revalidatePath("/profissionais");
     revalidatePath("/agenda/novo");
-    return undefined;
+    return { fullyDeleted: false };
   });
 }
