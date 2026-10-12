@@ -22,5 +22,7 @@
 \ir 060_subscription_lifecycle.sql
 \echo '=== 070_public_booking.sql ==='
 \ir 070_public_booking.sql
+\echo '=== 080_public_appointment_lookup.sql ==='
+\ir 080_public_appointment_lookup.sql
 
 \echo '=== ALL NEGATIVE TESTS PASSED ==='

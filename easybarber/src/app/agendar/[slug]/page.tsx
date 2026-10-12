@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { getPublicBookingPage } from "@/lib/actions/public-booking";
-import { PublicBookingForm } from "@/components/agendar/PublicBookingForm";
+import { PublicAgendarPageClient } from "@/components/agendar/PublicAgendarPageClient";
 
 export async function generateMetadata({
   params,
@@ -42,7 +42,13 @@ export default async function AgendarPage({
       </header>
 
       <main className="mx-auto w-full max-w-lg flex-1 px-4 py-6 sm:px-6">
-        <PublicBookingForm slug={slug} services={services} professionals={professionals} />
+        <PublicAgendarPageClient
+          slug={slug}
+          companyName={company.name}
+          companyPhone={company.phone}
+          services={services}
+          professionals={professionals}
+        />
       </main>
 
       <footer className="py-6 text-center text-xs text-brand-graphite/40">
