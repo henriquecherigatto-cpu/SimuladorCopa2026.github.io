@@ -18,6 +18,7 @@ import { Button } from "@/components/ui/Button";
 import { Avatar } from "@/components/ui/Avatar";
 import { AppointmentStatusBadge } from "@/components/ui/StatusBadge";
 import { EmptyState } from "@/components/ui/EmptyState";
+import { BookingLinkCard } from "@/components/dashboard/BookingLinkCard";
 import { formatCurrencyBRL } from "@/lib/utils";
 import { requireMembership } from "@/lib/supabase/current-user";
 
@@ -32,6 +33,7 @@ export default async function DashboardPage() {
 
   const [
     { data: profile },
+    { data: company },
     { data: todaysAppointments },
     { count: activeProfessionalsCount },
     { count: activeServicesCount },
@@ -39,6 +41,7 @@ export default async function DashboardPage() {
     { count: newCustomersCount },
   ] = await Promise.all([
     supabase.from("profiles").select("full_name").eq("id", userId).single(),
+    supabase.from("companies").select("slug").eq("id", companyId).single(),
     supabase
       .from("appointments")
       .select(
@@ -73,6 +76,9 @@ export default async function DashboardPage() {
   const revenueToday = appointments
     .filter((a) => a.status !== "cancelado")
     .reduce((sum, a) => sum + (a.service?.price_cents ?? 0), 0);
+
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+  const bookingLink = company?.slug ? `${appUrl}/agendar/${company.slug}` : null;
 
   return (
     <div className="flex flex-col gap-6">
@@ -112,6 +118,8 @@ export default async function DashboardPage() {
           tone="graphite"
         />
       </div>
+
+      {bookingLink && <BookingLinkCard url={bookingLink} />}
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         <Link
