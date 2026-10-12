@@ -55,13 +55,18 @@ and what it takes to point this at a real Asaas account.
    (`openssl rand -hex 32`) and set it both in Asaas's dashboard and as
    `ASAAS_WEBHOOK_TOKEN` here. This is what `verifyWebhookRequest()` checks on
    every delivery.
-4. **Sweep schedule**: point an external scheduler at
-   `POST /api/billing/sweep` with header `Authorization: Bearer $CRON_SECRET`,
-   once a day (a 10-day grace period doesn't need finer granularity, but more
-   frequent is harmless — every run only touches rows whose own date columns
-   say they're actually due). Any of these work:
-   - Vercel Cron (`vercel.json` → `crons`), if deployed there.
-   - A scheduled GitHub Actions workflow doing `curl -X POST ...`.
+4. **Sweep schedule**: `vercel.json` already declares a daily Vercel Cron Job
+   hitting `/api/billing/sweep` at 06:00 UTC — if you deploy to Vercel, set
+   `CRON_SECRET` as an environment variable and you're done: Vercel
+   automatically sends it as `Authorization: Bearer <value>` on every
+   cron-triggered request (that's the one env var name it treats specially).
+   Not deploying to Vercel? Point any scheduler at that same path instead —
+   it answers both GET and POST, as long as the same header is sent (a 10-day
+   grace period doesn't need finer granularity, but more frequent is
+   harmless — every run only touches rows whose own date columns say they're
+   actually due):
+   - A scheduled GitHub Actions workflow doing
+     `curl -H "Authorization: Bearer $CRON_SECRET" https://<domain>/api/billing/sweep`.
    - A Supabase scheduled Edge Function, or `pg_cron` calling
      `select public.sweep_subscription_lifecycle();` directly inside
      Postgres, if your project has the `pg_cron` extension enabled — the

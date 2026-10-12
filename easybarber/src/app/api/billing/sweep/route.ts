@@ -17,8 +17,16 @@ export const runtime = "nodejs";
  * caller here is a scheduler, not a signed-in user. Safe to call more
  * often than needed: every run is idempotent, only acting on rows
  * whose own date columns say they're actually due.
+ *
+ * Responds to both GET and POST with the same handler: Vercel Cron
+ * Jobs invoke their target path via GET (and, when an env var is
+ * literally named CRON_SECRET, automatically attach it as this exact
+ * `Authorization: Bearer <value>` header — see vercel.json and
+ * docs/billing-integration.md), while a manual curl check or a
+ * different scheduler (GitHub Actions, cron-job.org, pg_cron calling
+ * sweep_subscription_lifecycle() directly) is free to use POST.
  */
-export async function POST(request: Request) {
+async function handleSweep(request: Request) {
   const configured = process.env.CRON_SECRET;
   if (!configured) {
     console.error("billing sweep: CRON_SECRET is not configured");
@@ -40,3 +48,6 @@ export async function POST(request: Request) {
 
   return NextResponse.json({ ok: true, transitions: data });
 }
+
+export const GET = handleSweep;
+export const POST = handleSweep;
