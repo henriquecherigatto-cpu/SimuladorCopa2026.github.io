@@ -1,10 +1,11 @@
 "use server";
 
-import { format } from "date-fns";
+import { formatInTimeZone } from "date-fns-tz";
 import { ptBR } from "date-fns/locale";
 import { createClient } from "@/lib/supabase/server";
 import type { ActionResult } from "@/lib/actions/action-result";
 import { getWhatsAppProvider } from "@/lib/whatsapp/provider";
+import { APP_TIMEZONE } from "@/lib/utils";
 
 /**
  * The public, no-login booking flow (/agendar/<slug>). Every call
@@ -257,16 +258,22 @@ async function sendBookingConfirmation(
   if (!provider.isConfigured()) return;
   if (!booking.found || !booking.startsAt) return;
 
-  const startsAt = new Date(booking.startsAt);
   const cancelUrl = `${process.env.NEXT_PUBLIC_APP_URL}/cancelar/${booking.cancelToken}`;
 
+  // formatInTimeZone (not a bare format(new Date(...))) because this
+  // runs on the server, whose own local timezone (UTC on Vercel) has
+  // nothing to do with the customer's — see
+  // supabase/migrations/20260101000022_fix_appointment_timezone.sql
+  // for the same mistake made on the storage side.
   const result = await provider.sendMessage({
     to: customerPhone,
     templateVariables: {
       "1": booking.companyName ?? "",
       "2": booking.serviceName ?? "",
       "3": booking.professionalName ?? "",
-      "4": format(startsAt, "EEEE, d 'de' MMMM 'às' HH:mm", { locale: ptBR }),
+      "4": formatInTimeZone(booking.startsAt, APP_TIMEZONE, "EEEE, d 'de' MMMM 'às' HH:mm", {
+        locale: ptBR,
+      }),
       "5": cancelUrl,
     },
   });

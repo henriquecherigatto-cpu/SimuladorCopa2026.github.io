@@ -108,7 +108,8 @@ select test.act_as_superuser();
 insert into public.appointments (company_id, customer_id, professional_id, service_id, starts_at, ends_at, status, created_by)
 values (
   :'company_a_id'::uuid, :'customer_a_id'::uuid, :'professional_a2_id'::uuid, :'service_a_id'::uuid,
-  (current_date - 1 + interval '10 hour'), (current_date - 1 + interval '10 hour 45 minute'), 'agendado', :'owner_a_id'::uuid
+  ((current_date - 1 + interval '10 hour') at time zone 'America/Sao_Paulo'),
+  ((current_date - 1 + interval '10 hour 45 minute') at time zone 'America/Sao_Paulo'), 'agendado', :'owner_a_id'::uuid
 )
 returning id, cancel_token \gset past_
 

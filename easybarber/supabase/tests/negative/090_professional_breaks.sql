@@ -117,7 +117,8 @@ select test.assert_denied(
   format(
     'insert into public.appointments (company_id, customer_id, professional_id, service_id, starts_at, ends_at, created_by) values (%L, %L, %L, %L, %L, %L, %L)',
     :'company_a_id', :'customer_a_id', :'professional_a_id', :'service_a_id',
-    (current_date + 1 + interval '13 hour 15 minute')::text, (current_date + 1 + interval '14 hour')::text, :'owner_a_id'
+    ((current_date + 1 + interval '13 hour 15 minute') at time zone 'America/Sao_Paulo')::text,
+    ((current_date + 1 + interval '14 hour') at time zone 'America/Sao_Paulo')::text, :'owner_a_id'
   ),
   'an appointment landing inside Carlos''s lunch break is rejected by the database, not just hidden from availability');
 
@@ -127,7 +128,8 @@ select test.assert_row_count(1,
   test.exec_affected_rows(format(
     'insert into public.appointments (company_id, customer_id, professional_id, service_id, starts_at, ends_at, created_by) values (%L, %L, %L, %L, %L, %L, %L)',
     :'company_a_id', :'customer_a_id', :'professional_a_id', :'service_a_id',
-    (current_date + 1 + interval '14 hour')::text, (current_date + 1 + interval '14 hour 45 minute')::text, :'owner_a_id'
+    ((current_date + 1 + interval '14 hour') at time zone 'America/Sao_Paulo')::text,
+    ((current_date + 1 + interval '14 hour 45 minute') at time zone 'America/Sao_Paulo')::text, :'owner_a_id'
   )),
   'an appointment starting exactly when the lunch break ends is accepted');
 

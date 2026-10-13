@@ -14,7 +14,8 @@ select test.assert_denied(
   format(
     'insert into public.appointments (company_id, customer_id, professional_id, service_id, starts_at, ends_at, created_by) values (%L, %L, %L, %L, %L, %L, %L)',
     :'company_a_id', :'customer_a_id', :'professional_a_id', :'service_a_id',
-    (current_date + 1 + interval '10 hour')::text, (current_date + 1 + interval '10 hour 45 minute')::text, :'owner_a_id'
+    ((current_date + 1 + interval '10 hour') at time zone 'America/Sao_Paulo')::text,
+    ((current_date + 1 + interval '10 hour 45 minute') at time zone 'America/Sao_Paulo')::text, :'owner_a_id'
   ),
   'an identical-slot double-booking for professional A is rejected by the database');
 
@@ -24,7 +25,8 @@ select test.assert_denied(
   format(
     'insert into public.appointments (company_id, customer_id, professional_id, service_id, starts_at, ends_at, created_by) values (%L, %L, %L, %L, %L, %L, %L)',
     :'company_a_id', :'customer_a_id', :'professional_a_id', :'service_a_id',
-    (current_date + 1 + interval '10 hour 30 minute')::text, (current_date + 1 + interval '11 hour 15 minute')::text, :'owner_a_id'
+    ((current_date + 1 + interval '10 hour 30 minute') at time zone 'America/Sao_Paulo')::text,
+    ((current_date + 1 + interval '11 hour 15 minute') at time zone 'America/Sao_Paulo')::text, :'owner_a_id'
   ),
   'a partially overlapping booking for professional A is rejected by the database');
 
@@ -34,7 +36,8 @@ select test.assert_row_count(1,
   test.exec_affected_rows(format(
     'insert into public.appointments (company_id, customer_id, professional_id, service_id, starts_at, ends_at, created_by) values (%L, %L, %L, %L, %L, %L, %L)',
     :'company_a_id', :'customer_a_id', :'professional_a_id', :'service_a_id',
-    (current_date + 1 + interval '10 hour 45 minute')::text, (current_date + 1 + interval '11 hour 30 minute')::text, :'owner_a_id'
+    ((current_date + 1 + interval '10 hour 45 minute') at time zone 'America/Sao_Paulo')::text,
+    ((current_date + 1 + interval '11 hour 30 minute') at time zone 'America/Sao_Paulo')::text, :'owner_a_id'
   )),
   'a back-to-back (non-overlapping) booking for professional A is accepted');
 
@@ -44,7 +47,8 @@ select test.assert_row_count(1,
   test.exec_affected_rows(format(
     'insert into public.appointments (company_id, customer_id, professional_id, service_id, starts_at, ends_at, created_by) values (%L, %L, %L, %L, %L, %L, %L)',
     :'company_a_id', :'customer_a_id', :'professional_a2_id', :'service_a_id',
-    (current_date + 1 + interval '10 hour')::text, (current_date + 1 + interval '10 hour 45 minute')::text, :'owner_a_id'
+    ((current_date + 1 + interval '10 hour') at time zone 'America/Sao_Paulo')::text,
+    ((current_date + 1 + interval '10 hour 45 minute') at time zone 'America/Sao_Paulo')::text, :'owner_a_id'
   )),
   'the same time slot is fine for a different professional (A2)');
 
@@ -54,13 +58,14 @@ update public.appointments
 set status = 'cancelado'
 where company_id = :'company_a_id'::uuid
   and professional_id = :'professional_a_id'::uuid
-  and starts_at = (current_date + 1 + interval '10 hour 45 minute');
+  and starts_at = ((current_date + 1 + interval '10 hour 45 minute') at time zone 'America/Sao_Paulo');
 
 select test.assert_row_count(1,
   test.exec_affected_rows(format(
     'insert into public.appointments (company_id, customer_id, professional_id, service_id, starts_at, ends_at, created_by) values (%L, %L, %L, %L, %L, %L, %L)',
     :'company_a_id', :'customer_a_id', :'professional_a_id', :'service_a_id',
-    (current_date + 1 + interval '10 hour 45 minute')::text, (current_date + 1 + interval '11 hour 30 minute')::text, :'owner_a_id'
+    ((current_date + 1 + interval '10 hour 45 minute') at time zone 'America/Sao_Paulo')::text,
+    ((current_date + 1 + interval '11 hour 30 minute') at time zone 'America/Sao_Paulo')::text, :'owner_a_id'
   )),
   'a cancelled appointment frees up its slot for rebooking');
 

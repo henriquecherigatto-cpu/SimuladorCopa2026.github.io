@@ -1,9 +1,11 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { fromZonedTime } from "date-fns-tz";
 import { requireMembership } from "@/lib/supabase/current-user";
 import { runAction, type ActionResult } from "@/lib/actions/action-result";
 import { createCustomer } from "@/lib/actions/customers";
+import { APP_TIMEZONE } from "@/lib/utils";
 
 export interface CreateAppointmentInput {
   customerId?: string;
@@ -87,7 +89,14 @@ export async function createAppointment(
       throw new Error("Serviço inválido para esta barbearia.");
     }
 
-    const startsAt = new Date(`${input.date}T${input.startTime}:00`);
+    // input.date/startTime are the owner's own local wall-clock pick
+    // (the Agenda is Brazil-only) — fromZonedTime() is what actually
+    // converts that to the correct UTC instant; a bare `new Date(...)`
+    // on a tz-less string is parsed in whatever timezone the server
+    // process happens to run in (UTC on Vercel), which silently
+    // produced a 3h-wrong starts_at — see
+    // supabase/migrations/20260101000022_fix_appointment_timezone.sql.
+    const startsAt = fromZonedTime(`${input.date}T${input.startTime}:00`, APP_TIMEZONE);
     const endsAt = new Date(startsAt.getTime() + service.duration_min * 60_000);
 
     const { data, error } = await supabase
@@ -166,14 +175,21 @@ export async function listAppointmentsInRange(
   return runAction(async () => {
     const { supabase, companyId } = await requireMembership();
 
+    // startDate/endDate are company-local (Brazil) calendar days — a
+    // hardcoded "Z" here would filter by UTC midnight instead, missing
+    // or misplacing any appointment within ~3h of either end of the
+    // range (see 20260101000022_fix_appointment_timezone.sql).
+    const rangeStart = fromZonedTime(`${startDate}T00:00:00`, APP_TIMEZONE).toISOString();
+    const rangeEnd = fromZonedTime(`${endDate}T23:59:59.999`, APP_TIMEZONE).toISOString();
+
     const { data, error } = await supabase
       .from("appointments")
       .select(
         "id, starts_at, ends_at, status, notes, customer:customers!appointments_customer_id_fkey(id,name,phone), service:services!appointments_service_id_fkey(id,name,price_cents), professional:professionals!appointments_professional_id_fkey(id,name,color,photo_url)",
       )
       .eq("company_id", companyId)
-      .gte("starts_at", `${startDate}T00:00:00Z`)
-      .lt("starts_at", `${endDate}T23:59:59.999Z`)
+      .gte("starts_at", rangeStart)
+      .lt("starts_at", rangeEnd)
       .order("starts_at", { ascending: true });
 
     if (error) throw error;

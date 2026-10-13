@@ -50,7 +50,8 @@ select test.assert_denied(
   format(
     'insert into public.appointments (company_id, customer_id, professional_id, service_id, starts_at, ends_at, created_by) values (%L, %L, %L, %L, %L, %L, %L)',
     :'company_a_id', :'customer_a_id', :'professional_b_id', :'service_a_id',
-    (current_date + 2 + interval '10 hour')::text, (current_date + 2 + interval '10 hour 45 minute')::text, :'owner_a_id'
+    ((current_date + 2 + interval '10 hour') at time zone 'America/Sao_Paulo')::text,
+    ((current_date + 2 + interval '10 hour 45 minute') at time zone 'America/Sao_Paulo')::text, :'owner_a_id'
   ),
   'owner A cannot book an appointment against company B''s professional, even tagged with company A''s own id');
 
