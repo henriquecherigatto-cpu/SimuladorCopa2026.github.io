@@ -275,7 +275,7 @@ export async function uploadProfessionalPhoto(
 
     revalidatePath("/profissionais");
     revalidatePath("/agenda");
-    revalidatePath("/agenda/semana");
+    revalidatePath("/agenda/dia");
     revalidatePath("/agenda/novo");
     return { photoUrl: urlData.publicUrl };
   });
@@ -307,7 +307,7 @@ export async function removeProfessionalPhoto(
 
     revalidatePath("/profissionais");
     revalidatePath("/agenda");
-    revalidatePath("/agenda/semana");
+    revalidatePath("/agenda/dia");
     revalidatePath("/agenda/novo");
     return undefined;
   });

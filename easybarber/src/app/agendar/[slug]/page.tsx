@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
+import { MapPin } from "lucide-react";
 import { getPublicBookingPage } from "@/lib/actions/public-booking";
 import { PublicAgendarPageClient } from "@/components/agendar/PublicAgendarPageClient";
 
@@ -38,6 +39,19 @@ export default async function AgendarPage({
           <p className="text-sm text-brand-graphite/60">
             {[company.address, company.phone].filter(Boolean).join(" · ")}
           </p>
+          {company.address && (
+            <a
+              href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
+                `${company.name}, ${company.address}`,
+              )}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="mt-1 inline-flex w-fit items-center gap-1.5 text-sm font-medium text-brand-orange hover:underline"
+            >
+              <MapPin className="size-4" />
+              Como chegar
+            </a>
+          )}
         </div>
       </header>
 
