@@ -179,8 +179,27 @@ export function AgendaDayView({
       activeProfessional === "todos" || a.professional?.id === activeProfessional,
   );
 
-  const openMin = hhmmToMinutes(hours.start_time.slice(0, 5));
-  const closeMin = hhmmToMinutes(hours.end_time.slice(0, 5));
+  // The grid's own vertical window must cover every appointment that
+  // day, not just the currently-configured business hours — an
+  // appointment can exist outside the current hours (they were
+  // narrowed after it was booked, it was entered manually, etc.).
+  // Without this, such an appointment gets a top/height computed
+  // relative to a window it falls outside of, which can be negative
+  // and make it render above the grid's own container, overlapping
+  // whatever is above it on the page instead of just being clipped or
+  // scrolled to. Floored/ceiled to the hour so the hour gridlines
+  // (which step by 60) stay aligned to :00.
+  const businessOpenMin = hhmmToMinutes(hours.start_time.slice(0, 5));
+  const businessCloseMin = hhmmToMinutes(hours.end_time.slice(0, 5));
+  const appointmentMinutes = appointments.flatMap((a) => {
+    const start = new Date(a.starts_at);
+    const end = new Date(a.ends_at);
+    return [start.getHours() * 60 + start.getMinutes(), end.getHours() * 60 + end.getMinutes()];
+  });
+  const openMin =
+    Math.floor(Math.min(businessOpenMin, ...appointmentMinutes) / 60) * 60;
+  const closeMin =
+    Math.ceil(Math.max(businessCloseMin, ...appointmentMinutes) / 60) * 60;
   const totalSlots = Math.max(0, Math.ceil((closeMin - openMin) / SLOT_MINUTES));
   const hourMarks: number[] = [];
   for (let m = openMin; m <= closeMin; m += 60) hourMarks.push(m);

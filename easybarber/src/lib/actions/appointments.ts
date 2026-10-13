@@ -117,6 +117,7 @@ export async function createAppointment(
     if (error) throw error;
 
     revalidatePath("/agenda");
+    revalidatePath("/agenda/dia");
     revalidatePath("/dashboard");
     return data;
   });
@@ -140,6 +141,7 @@ export async function updateAppointmentStatus(
     }
 
     revalidatePath("/agenda");
+    revalidatePath("/agenda/dia");
     revalidatePath("/dashboard");
     return undefined;
   });
