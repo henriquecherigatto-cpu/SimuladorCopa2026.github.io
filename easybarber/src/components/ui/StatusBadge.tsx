@@ -1,6 +1,8 @@
 import { cn } from "@/lib/utils";
 import type { AppointmentStatus } from "@/types";
-import type { SubscriptionStatusLabel } from "@/lib/mock-data";
+import type { Database } from "@/lib/supabase/database.types";
+
+type SubscriptionStatus = Database["public"]["Enums"]["subscription_status"];
 
 const appointmentStatusMap: Record<
   AppointmentStatus,
@@ -46,23 +48,35 @@ export function AppointmentStatusBadge({
 }
 
 const subscriptionStatusMap: Record<
-  SubscriptionStatusLabel,
-  { className: string }
+  SubscriptionStatus,
+  { label: string; className: string }
 > = {
-  Ativo: { className: "bg-emerald-100 text-emerald-800" },
-  Pendente: { className: "bg-amber-100 text-amber-800" },
-  "Em tolerância": { className: "bg-orange-100 text-orange-800" },
-  Suspenso: { className: "bg-red-100 text-red-700" },
-  Cancelado: { className: "bg-slate-100 text-slate-600" },
+  ativa: { label: "Ativa", className: "bg-emerald-100 text-emerald-800" },
+  pendente: { label: "Pendente", className: "bg-amber-100 text-amber-800" },
+  tolerancia: { label: "Em tolerância", className: "bg-orange-100 text-orange-800" },
+  suspensa: { label: "Suspensa", className: "bg-red-100 text-red-700" },
+  cancelada: { label: "Cancelada", className: "bg-slate-100 text-slate-600" },
 };
 
 export function SubscriptionStatusBadge({
   status,
   className,
 }: {
-  status: SubscriptionStatusLabel;
+  status: SubscriptionStatus | null;
   className?: string;
 }) {
+  if (!status) {
+    return (
+      <span
+        className={cn(
+          "inline-flex items-center rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-500",
+          className,
+        )}
+      >
+        Sem assinatura
+      </span>
+    );
+  }
   const info = subscriptionStatusMap[status];
   return (
     <span
@@ -72,7 +86,7 @@ export function SubscriptionStatusBadge({
         className,
       )}
     >
-      {status}
+      {info.label}
     </span>
   );
 }

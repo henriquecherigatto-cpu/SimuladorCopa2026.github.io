@@ -3,6 +3,7 @@
 import { formatInTimeZone } from "date-fns-tz";
 import { ptBR } from "date-fns/locale";
 import { createClient } from "@/lib/supabase/server";
+import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import type { ActionResult } from "@/lib/actions/action-result";
 import { getWhatsAppProvider } from "@/lib/whatsapp/provider";
 import { APP_TIMEZONE } from "@/lib/utils";
@@ -279,6 +280,25 @@ async function sendBookingConfirmation(
   });
   if (!result.ok) {
     console.error(`WhatsApp confirmation send failed (${provider.name}):`, result.error);
+  }
+
+  // Best-effort bookkeeping for the admin dashboard (how many
+  // messages each company sends, and their cost) — log_whatsapp_message()
+  // is service_role-only (see 20260101000023_admin_analytics.sql), so
+  // this needs the service-role client even though the booking itself
+  // ran under the visitor's own anon session. A logging failure must
+  // never surface as a booking error, same as the send itself.
+  try {
+    const serviceRoleClient = createServiceRoleClient();
+    await serviceRoleClient.rpc("log_whatsapp_message", {
+      p_appointment_id: booking.id,
+      p_status: result.ok ? "sent" : "failed",
+      p_provider: provider.name,
+      p_provider_message_id: result.ok ? result.providerMessageId : undefined,
+      p_error: result.ok ? undefined : result.error,
+    });
+  } catch (error) {
+    console.error("Failed to log WhatsApp message for the admin dashboard:", error);
   }
 }
 
