@@ -28,5 +28,7 @@
 \ir 090_professional_breaks.sql
 \echo '=== 100_public_cancellation.sql ==='
 \ir 100_public_cancellation.sql
+\echo '=== 110_appointment_timezone.sql ==='
+\ir 110_appointment_timezone.sql
 
 \echo '=== ALL NEGATIVE TESTS PASSED ==='

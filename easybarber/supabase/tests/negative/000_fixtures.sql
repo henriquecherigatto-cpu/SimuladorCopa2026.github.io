@@ -49,7 +49,8 @@ returning id as customer_a_id \gset
 insert into public.appointments (company_id, customer_id, professional_id, service_id, starts_at, ends_at, created_by)
 values (
   :'company_a_id'::uuid, :'customer_a_id'::uuid, :'professional_a_id'::uuid, :'service_a_id'::uuid,
-  (current_date + 1 + interval '10 hour'), (current_date + 1 + interval '10 hour 45 minute'),
+  ((current_date + 1 + interval '10 hour') at time zone 'America/Sao_Paulo'),
+  ((current_date + 1 + interval '10 hour 45 minute') at time zone 'America/Sao_Paulo'),
   :'owner_a_id'::uuid
 )
 returning id as appointment_a_id \gset
@@ -71,7 +72,8 @@ values (:'professional_a2_id'::uuid, :'service_a_id'::uuid);
 insert into public.appointments (company_id, customer_id, professional_id, service_id, starts_at, ends_at, created_by)
 values (
   :'company_a_id'::uuid, :'customer_a_id'::uuid, :'professional_a2_id'::uuid, :'service_a_id'::uuid,
-  (current_date + 1 + interval '14 hour'), (current_date + 1 + interval '14 hour 45 minute'),
+  ((current_date + 1 + interval '14 hour') at time zone 'America/Sao_Paulo'),
+  ((current_date + 1 + interval '14 hour 45 minute') at time zone 'America/Sao_Paulo'),
   :'owner_a_id'::uuid
 )
 returning id as appointment_a2_id \gset
@@ -100,7 +102,8 @@ returning id as customer_b_id \gset
 insert into public.appointments (company_id, customer_id, professional_id, service_id, starts_at, ends_at, created_by)
 values (
   :'company_b_id'::uuid, :'customer_b_id'::uuid, :'professional_b_id'::uuid, :'service_b_id'::uuid,
-  (current_date + 1 + interval '11 hour'), (current_date + 1 + interval '11 hour 30 minute'),
+  ((current_date + 1 + interval '11 hour') at time zone 'America/Sao_Paulo'),
+  ((current_date + 1 + interval '11 hour 30 minute') at time zone 'America/Sao_Paulo'),
   :'owner_b_id'::uuid
 )
 returning id as appointment_b_id \gset

@@ -5,6 +5,21 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
+/**
+ * The one timezone appointment-facing date/time arithmetic is pinned
+ * to, mirroring public.app_timezone() in
+ * supabase/migrations/20260101000022_fix_appointment_timezone.sql —
+ * every company on this app is a Brazilian barbershop, so this is a
+ * single shared constant rather than a per-company setting. Used
+ * wherever a date+time typed by a visitor/owner (their own local wall
+ * clock) needs to become an absolute instant, or an absolute instant
+ * needs to be shown back as that same wall-clock time — see
+ * createAppointment() and listAppointmentsInRange()
+ * (src/lib/actions/appointments.ts) and sendBookingConfirmation()
+ * (src/lib/actions/public-booking.ts).
+ */
+export const APP_TIMEZONE = "America/Sao_Paulo";
+
 export function formatCurrencyBRL(value: number): string {
   return value.toLocaleString("pt-BR", {
     style: "currency",
