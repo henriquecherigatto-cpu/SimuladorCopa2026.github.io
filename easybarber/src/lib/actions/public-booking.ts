@@ -242,6 +242,13 @@ export async function createPublicBooking(
   }
 }
 
+/**
+ * The variable order here (1..5) must match the approved WhatsApp
+ * Content Template's own {{1}}..{{5}} placeholders exactly — see
+ * docs/whatsapp-integration.md for the template text this is built
+ * for. Changing one side without the other either sends the wrong
+ * values into the right slots, or fails outright.
+ */
 async function sendBookingConfirmation(
   customerPhone: string,
   booking: PublicBookingResult,
@@ -253,15 +260,16 @@ async function sendBookingConfirmation(
   const startsAt = new Date(booking.startsAt);
   const cancelUrl = `${process.env.NEXT_PUBLIC_APP_URL}/cancelar/${booking.cancelToken}`;
 
-  const body = [
-    `Olá! Seu agendamento na ${booking.companyName} está confirmado:`,
-    `${booking.serviceName} com ${booking.professionalName}`,
-    format(startsAt, "EEEE, d 'de' MMMM 'às' HH:mm", { locale: ptBR }) + ".",
-    "",
-    `Não poderá comparecer? Cancele por aqui: ${cancelUrl}`,
-  ].join("\n");
-
-  const result = await provider.sendMessage({ to: customerPhone, body });
+  const result = await provider.sendMessage({
+    to: customerPhone,
+    templateVariables: {
+      "1": booking.companyName ?? "",
+      "2": booking.serviceName ?? "",
+      "3": booking.professionalName ?? "",
+      "4": format(startsAt, "EEEE, d 'de' MMMM 'às' HH:mm", { locale: ptBR }),
+      "5": cancelUrl,
+    },
+  });
   if (!result.ok) {
     console.error(`WhatsApp confirmation send failed (${provider.name}):`, result.error);
   }
