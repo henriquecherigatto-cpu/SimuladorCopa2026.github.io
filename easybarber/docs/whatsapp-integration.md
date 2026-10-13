@@ -52,30 +52,78 @@ can't be used to probe which tokens are real.
    start — the Sandbox below needs no business verification or payment
    method).
 2. **Join the WhatsApp Sandbox**: Twilio Console → Messaging → Try it out →
-   Send a WhatsApp message. It gives you a sandbox number (usually
-   `+1 415 523 8886`) and a join code — send that code from the phone you
-   want to test with, once, to opt that number in.
+   Send a WhatsApp message. It gives you a sandbox number (this is
+   per-account — ours came out `+1 737 250 8034`, not Twilio's old generic
+   `+1 415 523 8886`, so always read the actual number off this page rather
+   than assuming) and a join keyword (e.g. `join twilio-trial`) — send that
+   exact phrase from the phone you want to test with, once, to opt it in.
+   Each opt-in is good for 72 hours; after that, send the join phrase again.
 3. **Credentials**: Console → Account → API keys & tokens gives you the
    Account SID and Auth Token. Set `TWILIO_ACCOUNT_SID` and
    `TWILIO_AUTH_TOKEN`.
-4. **Sender number**: set `TWILIO_WHATSAPP_FROM=whatsapp:+14155238886` (the
-   sandbox number, with the `whatsapp:` prefix Twilio's API requires) while
-   testing. Moving to production means applying for a WhatsApp Business
-   sender in the Twilio Console (Twilio guides you through Meta's business
-   verification) and swapping this one value — nothing else in the code
+4. **Sender number**: set `TWILIO_WHATSAPP_FROM=whatsapp:+<your sandbox
+   number>` while testing. Moving to production means applying for a
+   WhatsApp Business sender in the Twilio Console (Twilio guides you through
+   Meta's business verification) and swapping this one value — nothing else
    changes.
-5. **Owner's own number**: each barbershop sets its own WhatsApp number from
+5. **Content Template** (required — a plain-text send is rejected): a
+   booking confirmation is *business-initiated* — the customer never
+   messaged first to open a 24-hour session — and WhatsApp only allows a
+   business-initiated message through a template Meta has pre-approved, never
+   free-form text. Skipping this step is exactly what produced the
+   `"ContentSid Required"` error during our own first real test. To fix it:
+   1. Twilio Console → Messaging → Content Template Builder → Create new →
+      WhatsApp → Text.
+   2. Category: **Utility** (this is a transactional notification tied to an
+      action the customer took, not marketing — Utility also approves
+      faster).
+   3. Language: Portuguese (Brazil).
+   4. Body, exactly (five numbered variables, in this order — the code in
+      `sendBookingConfirmation()` fills them in this exact order and nothing
+      else reads the template, so the wording around the variables can be
+      adjusted freely, but the **order** of `{{1}}`..`{{5}}` cannot):
+      ```
+      Olá! Seu agendamento na {{1}} está confirmado: {{2}} com {{3}}, {{4}}. Não poderá comparecer? Cancele por aqui: {{5}}
+      ```
+      (`{{1}}` company name, `{{2}}` service, `{{3}}` professional, `{{4}}`
+      date/time already formatted in Portuguese, `{{5}}` the cancel link.)
+   5. Submit for WhatsApp approval. Utility templates are typically approved
+      within minutes to a few hours, not days.
+   6. Once approved, copy its Content SID (starts `HX...`) into
+      `TWILIO_CONTENT_SID`.
+6. **Owner's own number**: each barbershop sets its own WhatsApp number from
    Configurações (owner-only) — that's the number the "Falar no WhatsApp"
    floating button on the public booking page opens a chat with. It's
-   independent from the three `TWILIO_*` vars above: those control the
-   barbershop's *outgoing automated confirmation*, sent from the shop's
-   Twilio sender to the customer; the Configurações number is what the
-   *customer* messages back, by hand, on their own WhatsApp.
+   independent from the `TWILIO_*` vars above: those control the
+   barbershop's *outgoing automated confirmation*, sent from the platform's
+   one shared Twilio sender to the customer; the Configurações number is
+   what the *customer* messages back, by hand, on their own WhatsApp. Every
+   company on the platform shares the same `TWILIO_*` sender and template —
+   see "One shared sender, not one per company" below for why.
 
-Leaving the three `TWILIO_*` vars unset is a valid, deliberate state during
+Leaving the four `TWILIO_*` vars unset is a valid, deliberate state during
 development — `isConfigured()` returns `false`, `sendBookingConfirmation()`
 returns early, and a public booking still succeeds exactly as before; it
 just never sends the WhatsApp message.
+
+## One shared sender, not one per company
+
+This is a multi-tenant product — many companies, one deployment. The
+automated confirmation is sent from **one** WhatsApp sender shared by every
+company (the `TWILIO_WHATSAPP_FROM` configured above), not from each
+barbershop's own number. The message text still says which barbershop it's
+about (`{{1}}` in the template), but the number the customer sees as the
+sender is always the platform's.
+
+The alternative — each company sending from its own WhatsApp number — would
+require every single company that signs up to separately complete Meta's
+WhatsApp Business verification (a real-business check, CNPJ, days of lead
+time) before online booking would even work for them. That's friction on
+every new signup for a property this app already covers a different way:
+the "Falar no WhatsApp" floating button opens a chat with the barbershop's
+*own* number (`companies.whatsapp_number`) for anything the customer wants
+to say back. Only the one-way, automated confirmation goes out from the
+shared sender.
 
 ## Verifying it without a real Twilio account
 
@@ -86,14 +134,18 @@ tokens, idempotent re-cancel, the slot reopening afterwards, and the
 past/concluded-appointment guards — all against real
 `create_public_appointment` bookings, no Twilio call involved.
 
-To see the actual message Twilio would receive without sending anything,
-temporarily log `body` inside `sendBookingConfirmation()`
-(`src/lib/actions/public-booking.ts`) — with the three `TWILIO_*` vars unset,
+To see the actual variables Twilio would receive without sending anything,
+temporarily log `templateVariables` inside `sendBookingConfirmation()`
+(`src/lib/actions/public-booking.ts`) — with the four `TWILIO_*` vars unset,
 `isConfigured()` is `false` and nothing is sent, but you can still exercise
 the rest of the booking flow end-to-end against the local Supabase stack.
 
-Once you've joined the Sandbox (step 2 above) and set real values for all
-three vars in `.env.local`, a real public booking through `/agendar/<slug>`
-sends a real WhatsApp message to whatever phone number the customer entered
-— as long as that number already joined the Sandbox too (production,
-post-verification, has no such restriction).
+Once you've joined the Sandbox (step 2 above), created and had the Content
+Template approved (step 5), and set real values for all four vars in
+`.env.local`, a real public booking through `/agendar/<slug>` sends a real
+WhatsApp message to whatever phone number the customer entered — as long as
+that number already joined the Sandbox too (production, post-verification,
+has no such restriction). A send that fails logs
+`WhatsApp confirmation send failed (twilio): <reason>` — in Vercel this
+shows up under the deployment's Runtime Logs, which is how the
+`"ContentSid Required"` error that led to step 5 above was actually found.

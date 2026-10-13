@@ -11,7 +11,17 @@
 export interface SendMessageInput {
   /** Visitor-typed phone number, any reasonable format — the adapter normalizes it. */
   to: string;
-  body: string;
+  /**
+   * Numbered placeholders ("1", "2", ...) for a pre-approved WhatsApp
+   * message template. A business-initiated WhatsApp message (one the
+   * customer didn't message first to open a 24h session) can only use
+   * free-form text from inside that window — any provider sending a
+   * proactive message like a booking confirmation must fill in an
+   * approved template instead. This is a WhatsApp Business Platform
+   * rule, not a Twilio quirk, so it belongs in the shared shape rather
+   * than being Twilio-specific.
+   */
+  templateVariables: Record<string, string>;
 }
 
 export interface SendMessageResult {
