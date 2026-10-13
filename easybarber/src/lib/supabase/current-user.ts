@@ -17,6 +17,13 @@ export class NoCompanyError extends Error {
   }
 }
 
+export class NotPlatformAdminError extends Error {
+  constructor() {
+    super("Apenas administradores da plataforma podem acessar esta área.");
+    this.name = "NotPlatformAdminError";
+  }
+}
+
 /**
  * Resolves the authenticated user's id straight from the verified
  * session — never from anything the caller passes in. Every Server
@@ -82,4 +89,25 @@ export async function requireMembership(): Promise<CurrentMembership> {
     professionalId: professional?.id ?? null,
     isPlatformAdmin: profile?.is_platform_admin ?? false,
   };
+}
+
+/**
+ * Gate for the platform-admin area (/admin). Deliberately separate
+ * from requireMembership(): the platform owner's own account doesn't
+ * necessarily belong to any company_members row (they aren't a
+ * barbershop owner themselves), so requireMembership() would wrongly
+ * throw NoCompanyError for them.
+ */
+export async function requirePlatformAdmin() {
+  const { supabase, userId } = await requireUserId();
+
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("is_platform_admin")
+    .eq("id", userId)
+    .single();
+
+  if (!profile?.is_platform_admin) throw new NotPlatformAdminError();
+
+  return { supabase, userId };
 }

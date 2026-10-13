@@ -30,5 +30,7 @@
 \ir 100_public_cancellation.sql
 \echo '=== 110_appointment_timezone.sql ==='
 \ir 110_appointment_timezone.sql
+\echo '=== 120_admin_analytics.sql ==='
+\ir 120_admin_analytics.sql
 
 \echo '=== ALL NEGATIVE TESTS PASSED ==='

@@ -783,6 +783,58 @@ export type Database = {
           },
         ];
       };
+      whatsapp_messages: {
+        Row: {
+          appointment_id: string | null;
+          company_id: string;
+          cost_cents: number;
+          created_at: string;
+          error: string | null;
+          id: string;
+          provider: string;
+          provider_message_id: string | null;
+          status: Database["public"]["Enums"]["whatsapp_message_status"];
+        };
+        ComputedFields: never;
+        Insert: {
+          appointment_id?: string | null;
+          company_id: string;
+          cost_cents?: number;
+          created_at?: string;
+          error?: string | null;
+          id?: string;
+          provider: string;
+          provider_message_id?: string | null;
+          status: Database["public"]["Enums"]["whatsapp_message_status"];
+        };
+        Update: {
+          appointment_id?: string | null;
+          company_id?: string;
+          cost_cents?: number;
+          created_at?: string;
+          error?: string | null;
+          id?: string;
+          provider?: string;
+          provider_message_id?: string | null;
+          status?: Database["public"]["Enums"]["whatsapp_message_status"];
+        };
+        Relationships: [
+          {
+            foreignKeyName: "whatsapp_messages_appointment_id_fkey";
+            columns: ["appointment_id"];
+            isOneToOne: false;
+            referencedRelation: "appointments";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "whatsapp_messages_company_id_fkey";
+            columns: ["company_id"];
+            isOneToOne: false;
+            referencedRelation: "companies";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
     };
     Views: {
       [_ in never]: never;
@@ -791,24 +843,46 @@ export type Database = {
       admin_company_overview: {
         Args: Record<PropertyKey, never>;
         Returns: {
+          appointment_count: number;
+          appointments_this_month: number;
           company_id: string;
           company_name: string;
           customer_count: number;
           next_payment_date: string;
           plan_name: string;
+          plan_price_cents: number;
           professional_count: number;
           subscription_status: Database["public"]["Enums"]["subscription_status"];
+          whatsapp_cost_cents: number;
+          whatsapp_message_count: number;
+          whatsapp_messages_this_month: number;
         }[];
       };
       admin_platform_metrics: {
         Args: Record<PropertyKey, never>;
         Returns: {
           active_companies: number;
+          appointments_this_month: number;
           mrr_cents: number;
           new_companies_this_month: number;
+          total_appointments: number;
           total_companies: number;
+          total_whatsapp_messages: number;
+          whatsapp_cost_cents_this_month: number;
         }[];
       };
+      admin_revenue_timeseries: {
+        Args: { p_months?: number };
+        Returns: {
+          month: string;
+          revenue_cents: number;
+        }[];
+      };
+      admin_update_plan_price: {
+        Args: { p_plan_id: string; p_price_cents: number };
+        Returns: undefined;
+      };
+      app_timezone: { Args: Record<PropertyKey, never>; Returns: string };
       apply_billing_event: {
         Args: {
           p_amount_cents: number;
@@ -881,6 +955,16 @@ export type Database = {
         Returns: boolean;
       };
       is_platform_admin: { Args: Record<PropertyKey, never>; Returns: boolean };
+      log_whatsapp_message: {
+        Args: {
+          p_appointment_id: string;
+          p_error?: string;
+          p_provider: string;
+          p_provider_message_id?: string;
+          p_status: Database["public"]["Enums"]["whatsapp_message_status"];
+        };
+        Returns: undefined;
+      };
       professional_id_for_current_user: { Args: { p_company_id: string }; Returns: string };
       sweep_subscription_lifecycle: {
         Args: Record<PropertyKey, never>;
@@ -906,6 +990,7 @@ export type Database = {
       appointment_status: "agendado" | "confirmado" | "concluido" | "cancelado";
       company_member_role: "owner" | "professional";
       subscription_status: "ativa" | "pendente" | "tolerancia" | "suspensa" | "cancelada";
+      whatsapp_message_status: "sent" | "failed";
     };
     CompositeTypes: {
       [_ in never]: never;
@@ -1027,6 +1112,7 @@ export const Constants = {
       appointment_status: ["agendado", "confirmado", "concluido", "cancelado"],
       company_member_role: ["owner", "professional"],
       subscription_status: ["ativa", "pendente", "tolerancia", "suspensa", "cancelada"],
+      whatsapp_message_status: ["sent", "failed"],
     },
   },
 } as const;
