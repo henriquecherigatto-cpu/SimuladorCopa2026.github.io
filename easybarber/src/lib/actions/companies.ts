@@ -9,6 +9,7 @@ export interface CompanySettingsInput {
   phone: string;
   whatsappNumber?: string;
   address?: string;
+  cnpj?: string;
 }
 
 function assertOwner(role: string) {
@@ -34,6 +35,7 @@ export async function updateCompanySettings(
         phone: input.phone.trim(),
         whatsapp_number: input.whatsappNumber?.trim() || null,
         address: input.address?.trim() || null,
+        cnpj: input.cnpj?.trim() || null,
       })
       .eq("id", companyId);
     if (error) throw error;

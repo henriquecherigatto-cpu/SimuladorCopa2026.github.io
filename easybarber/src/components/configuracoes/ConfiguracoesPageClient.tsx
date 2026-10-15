@@ -8,6 +8,7 @@ import {
   Building2,
   ChevronRight,
   Clock,
+  FileText,
   HelpCircle,
   LifeBuoy,
   Lock,
@@ -37,6 +38,7 @@ interface CompanyRow {
   phone: string;
   whatsapp_number: string | null;
   address: string | null;
+  cnpj: string | null;
 }
 
 type SectionKey =
@@ -253,6 +255,7 @@ function CompanyFormFields({
   const [phone, setPhone] = React.useState(company.phone);
   const [whatsappNumber, setWhatsappNumber] = React.useState(company.whatsapp_number ?? "");
   const [address, setAddress] = React.useState(company.address ?? "");
+  const [cnpj, setCnpj] = React.useState(company.cnpj ?? "");
   const [error, setError] = React.useState<string | null>(null);
   const [submitting, setSubmitting] = React.useState(false);
 
@@ -266,6 +269,7 @@ function CompanyFormFields({
       phone,
       whatsappNumber,
       address,
+      cnpj,
     });
     setSubmitting(false);
     if (!result.ok) {
@@ -277,6 +281,7 @@ function CompanyFormFields({
       phone: phone.trim(),
       whatsapp_number: whatsappNumber.trim() || null,
       address: address.trim() || null,
+      cnpj: cnpj.trim() || null,
     });
   };
 
@@ -313,6 +318,15 @@ function CompanyFormFields({
         label="Endereço"
         value={address}
         onChange={(e) => setAddress(e.target.value)}
+        disabled={!canManage}
+      />
+      <Input
+        label="CNPJ"
+        leftIcon={<FileText className="size-4" />}
+        value={cnpj}
+        onChange={(e) => setCnpj(e.target.value)}
+        placeholder="00.000.000/0000-00"
+        hint="Necessário para gerar cobranças via Pix na tela de Plano e assinatura."
         disabled={!canManage}
       />
       {canManage && (
