@@ -5,6 +5,7 @@ import { Sidebar } from "@/components/layout/Sidebar";
 import { TopBar } from "@/components/layout/TopBar";
 import { MobileBottomNav } from "@/components/layout/MobileBottomNav";
 import { MoreSheet } from "@/components/layout/MoreSheet";
+import { SupportWhatsAppButton } from "@/components/layout/SupportWhatsAppButton";
 
 export interface AppShellIdentity {
   userName: string;
@@ -44,6 +45,7 @@ export function AppShell({
         roleLabel={identity.roleLabel}
         isPlatformAdmin={identity.isPlatformAdmin}
       />
+      <SupportWhatsAppButton />
     </div>
   );
 }
