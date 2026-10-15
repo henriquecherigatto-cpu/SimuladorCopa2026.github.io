@@ -1,6 +1,11 @@
 import "server-only";
 import { toWhatsAppDigits } from "@/lib/utils";
-import type { SendMessageInput, SendMessageResult, WhatsAppProvider } from "@/lib/whatsapp/types";
+import type {
+  SendMessageInput,
+  SendMessageResult,
+  WhatsAppProvider,
+  WhatsAppTemplate,
+} from "@/lib/whatsapp/types";
 
 /**
  * Twilio's WhatsApp messaging API
@@ -12,21 +17,24 @@ import type { SendMessageInput, SendMessageResult, WhatsAppProvider } from "@/li
  * registering a real WhatsApp Business number for production.
  *
  * Nothing here is wired to a live account yet: without
- * TWILIO_ACCOUNT_SID / TWILIO_AUTH_TOKEN / TWILIO_WHATSAPP_FROM /
- * TWILIO_CONTENT_SID configured, isConfigured() is false and
+ * TWILIO_ACCOUNT_SID / TWILIO_AUTH_TOKEN / TWILIO_WHATSAPP_FROM
+ * configured, isConfigured() is false for every template, and
  * sendMessage() returns a clear { ok: false } instead of pretending to
- * succeed — the booking flow that calls this must never fail just
- * because WhatsApp sending isn't configured yet (see
- * sendBookingConfirmation() in src/lib/actions/public-booking.ts).
+ * succeed — a caller must never fail its own main flow just because
+ * WhatsApp sending isn't configured yet (see sendBookingConfirmation()
+ * in src/lib/actions/public-booking.ts and
+ * notifyCompanyEnteringGracePeriod() in
+ * src/lib/actions/subscription-notifications.ts).
  *
- * A booking confirmation is business-initiated — the customer never
+ * Every message here is business-initiated — the recipient never
  * messaged first to open a 24h session — so WhatsApp only allows it
  * through a pre-approved message template, never free-form Body text
  * (confirmed the hard way: Twilio's API rejects a plain Body send for
- * this case with "ContentSid Required"). TWILIO_CONTENT_SID is that
- * template's id from Twilio's Content Template Builder; see
- * docs/whatsapp-integration.md for the exact template text to submit
- * and where to find the id once Meta approves it.
+ * this case with "ContentSid Required"). Each WhatsAppTemplate has its
+ * OWN Content SID env var (contentSidFor() below) because template
+ * approval is per exact wording, not a blanket "this account can send
+ * templates" — see docs/whatsapp-integration.md for the exact text to
+ * submit for each one and where to find its id once Meta approves it.
  */
 export class TwilioWhatsAppProvider implements WhatsAppProvider {
   readonly name = "twilio";
@@ -44,24 +52,40 @@ export class TwilioWhatsAppProvider implements WhatsAppProvider {
     return process.env.TWILIO_WHATSAPP_FROM;
   }
 
-  /** The approved Content Template's sid (starts "HX..."), from Twilio's Content Template Builder. */
-  private get contentSid() {
-    return process.env.TWILIO_CONTENT_SID;
+  /**
+   * Each outbound message kind (WhatsAppTemplate) has its own
+   * Meta-approved Content Template, hence its own sid (starts "HX...")
+   * from Twilio's Content Template Builder and its own env var —
+   * approval is per exact wording, not per account.
+   */
+  private contentSidFor(template: WhatsAppTemplate): string | undefined {
+    switch (template) {
+      case "booking_confirmation":
+        return process.env.TWILIO_CONTENT_SID;
+      case "subscription_grace_reminder":
+        return process.env.TWILIO_CONTENT_SID_GRACE_REMINDER;
+    }
   }
 
-  isConfigured(): boolean {
-    return !!this.accountSid && !!this.authToken && !!this.fromAddress && !!this.contentSid;
+  isConfigured(template: WhatsAppTemplate): boolean {
+    return (
+      !!this.accountSid && !!this.authToken && !!this.fromAddress && !!this.contentSidFor(template)
+    );
   }
 
   async sendMessage(input: SendMessageInput): Promise<SendMessageResult> {
-    if (!this.accountSid || !this.authToken || !this.fromAddress || !this.contentSid) {
-      return { ok: false, error: "Twilio WhatsApp provider is not configured." };
+    const contentSid = this.contentSidFor(input.template);
+    if (!this.accountSid || !this.authToken || !this.fromAddress || !contentSid) {
+      return {
+        ok: false,
+        error: `Twilio WhatsApp provider is not configured for template "${input.template}".`,
+      };
     }
 
     const body = new URLSearchParams({
       From: this.fromAddress,
       To: `whatsapp:+${toWhatsAppDigits(input.to)}`,
-      ContentSid: this.contentSid,
+      ContentSid: contentSid,
       ContentVariables: JSON.stringify(input.templateVariables),
     });
 

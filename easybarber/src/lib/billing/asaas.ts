@@ -9,20 +9,21 @@ import type {
 
 /**
  * Asaas (https://www.asaas.com) adapter — a Brazilian payment
- * provider supporting Pix, boleto and card, which fits the app's R$
- * pricing. Nothing here is wired to a live account yet: without
+ * provider, which fits the app's R$ pricing. Asaas itself also
+ * supports boleto and card, but createCheckoutSession() below locks
+ * every subscription to billingType: "PIX" — the platform owner's own
+ * choice to offer only Pix for now, not a limitation of Asaas or this
+ * adapter. Nothing here is wired to a live account yet: without
  * ASAAS_API_KEY configured, isConfigured() is false and
  * createCheckoutSession() throws a clear configuration error instead
  * of pretending to succeed. Flipping it on in production is then just
  * setting the three env vars below — no code changes.
  *
- * Card data never touches this server: createCheckoutSession()
+ * No payment data ever touches this server: createCheckoutSession()
  * creates an Asaas customer + subscription via their REST API, then
  * hands back the `invoiceUrl` of the first generated charge — a page
- * hosted on asaas.com where the payer picks Pix/boleto/card and, for
- * card, types the number directly into Asaas's own form. This server
- * never receives or stores a card number, a CVV, or any tokenized
- * payment-method reference.
+ * hosted on asaas.com showing the Pix QR code/copy-paste key. This
+ * server never receives or stores any payment credential.
  */
 export class AsaasProvider implements PaymentProvider {
   readonly name = "asaas";
@@ -94,14 +95,17 @@ export class AsaasProvider implements PaymentProvider {
 
     const customerId = await this.findOrCreateCustomer(input);
 
-    // billingType: "UNDEFINED" lets the payer choose Pix, boleto or
-    // card on Asaas's own hosted invoice page — we never ask them to
-    // pick (or collect) a payment method ourselves.
+    // billingType: "PIX" — by the platform owner's choice, Pix is the
+    // only payment method offered for now (boleto and card are
+    // disabled, not just hidden: Asaas's hosted invoice page won't
+    // offer them either). Asaas still hosts the actual QR
+    // code/copy-paste key on its own invoice page — this server never
+    // generates or sees it directly.
     const subscription = await this.request<{ id: string }>("/subscriptions", {
       method: "POST",
       body: JSON.stringify({
         customer: customerId,
-        billingType: "UNDEFINED",
+        billingType: "PIX",
         cycle: "MONTHLY",
         value: input.priceCents / 100,
         description: `Easy Barber — ${input.planName}`,

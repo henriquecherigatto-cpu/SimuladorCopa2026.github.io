@@ -256,8 +256,30 @@ async function sendBookingConfirmation(
   booking: PublicBookingResult,
 ): Promise<void> {
   const provider = getWhatsAppProvider();
-  if (!provider.isConfigured()) return;
+  if (!provider.isConfigured("booking_confirmation")) return;
   if (!booking.found || !booking.startsAt) return;
+
+  // The automated confirmation is a Profissional-tier (R$49,90) perk,
+  // not included on Essencial — see
+  // 20260101000026_whatsapp_plan_gating_and_subscription_alerts.sql.
+  // subscriptions/plans are owner-only under RLS (subscriptions_select),
+  // so this check needs the service-role client — the visitor booking
+  // has no session that could read it.
+  const serviceRoleClient = createServiceRoleClient();
+
+  const { data: appointment } = await serviceRoleClient
+    .from("appointments")
+    .select("company_id")
+    .eq("id", booking.id)
+    .single();
+  if (!appointment) return;
+
+  const { data: subscription } = await serviceRoleClient
+    .from("subscriptions")
+    .select("plans ( whatsapp_confirmations_included )")
+    .eq("company_id", appointment.company_id)
+    .single();
+  if (!subscription?.plans?.whatsapp_confirmations_included) return;
 
   const cancelUrl = `${process.env.NEXT_PUBLIC_APP_URL}/cancelar/${booking.cancelToken}`;
 
@@ -268,6 +290,7 @@ async function sendBookingConfirmation(
   // for the same mistake made on the storage side.
   const result = await provider.sendMessage({
     to: customerPhone,
+    template: "booking_confirmation",
     templateVariables: {
       "1": booking.companyName ?? "",
       "2": booking.serviceName ?? "",
@@ -287,9 +310,9 @@ async function sendBookingConfirmation(
   // is service_role-only (see 20260101000023_admin_analytics.sql), so
   // this needs the service-role client even though the booking itself
   // ran under the visitor's own anon session. A logging failure must
-  // never surface as a booking error, same as the send itself.
+  // never surface as a booking error, same as the send itself. Reuses
+  // the same serviceRoleClient created above for the plan check.
   try {
-    const serviceRoleClient = createServiceRoleClient();
     await serviceRoleClient.rpc("log_whatsapp_message", {
       p_appointment_id: booking.id,
       p_status: result.ok ? "sent" : "failed",

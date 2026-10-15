@@ -25,7 +25,7 @@ select test.act_as(:'owner_a_id'::uuid);
 
 select test.assert_denied(
   format(
-    $sql$select public.log_whatsapp_message(%L, 'sent'::public.whatsapp_message_status, 'twilio')$sql$,
+    $sql$select public.log_whatsapp_message('sent'::public.whatsapp_message_status, 'twilio', p_appointment_id => %L)$sql$,
     :'appointment_a_id'
   ),
   'an ordinary company owner cannot call log_whatsapp_message() — service_role only'
@@ -35,7 +35,7 @@ select test.act_as_anon();
 
 select test.assert_denied(
   format(
-    $sql$select public.log_whatsapp_message(%L, 'sent'::public.whatsapp_message_status, 'twilio')$sql$,
+    $sql$select public.log_whatsapp_message('sent'::public.whatsapp_message_status, 'twilio', p_appointment_id => %L)$sql$,
     :'appointment_a_id'
   ),
   'anon cannot call log_whatsapp_message() either'
@@ -62,14 +62,14 @@ select test.assert_denied(
 -- ---------------------------------------------------------------------
 select test.act_as_superuser();
 
-select public.log_whatsapp_message(:'appointment_a_id'::uuid, 'sent'::public.whatsapp_message_status, 'twilio', 'SM_fake_1', null);
-select public.log_whatsapp_message(:'appointment_a_id'::uuid, 'sent'::public.whatsapp_message_status, 'twilio', 'SM_fake_2', null);
-select public.log_whatsapp_message(:'appointment_a_id'::uuid, 'failed'::public.whatsapp_message_status, 'twilio', null, 'ContentSid Required');
+select public.log_whatsapp_message('sent'::public.whatsapp_message_status, 'twilio', p_appointment_id => :'appointment_a_id'::uuid, p_provider_message_id => 'SM_fake_1');
+select public.log_whatsapp_message('sent'::public.whatsapp_message_status, 'twilio', p_appointment_id => :'appointment_a_id'::uuid, p_provider_message_id => 'SM_fake_2');
+select public.log_whatsapp_message('failed'::public.whatsapp_message_status, 'twilio', p_appointment_id => :'appointment_a_id'::uuid, p_error => 'ContentSid Required');
 
 -- An appointment id that doesn't exist must be a silent no-op, never
 -- an error — sendBookingConfirmation() calls this after the booking
 -- already succeeded and must never be able to fail because of it.
-select public.log_whatsapp_message(gen_random_uuid(), 'sent'::public.whatsapp_message_status, 'twilio', null, null);
+select public.log_whatsapp_message('sent'::public.whatsapp_message_status, 'twilio', p_appointment_id => gen_random_uuid());
 
 select test.act_as(:'outsider_id'::uuid);
 
