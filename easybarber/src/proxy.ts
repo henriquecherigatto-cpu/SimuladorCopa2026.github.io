@@ -10,8 +10,9 @@ export const config = {
     /*
      * Run on every route except static assets, Next's own internals,
      * and src/app/api/** — auth must be checked everywhere else,
-     * including the root "/" (which itself redirects to /login or
-     * /dashboard). The api/ exclusion matters: those routes
+     * including the root "/" (the public marketing page — an already
+     * signed-in visitor there is bounced to /dashboard, same as
+     * /login or /cadastro). The api/ exclusion matters: those routes
      * (billing webhook, billing sweep) are called by a payment
      * provider and an external scheduler, never by a signed-in
      * browser session, and authenticate themselves via their own

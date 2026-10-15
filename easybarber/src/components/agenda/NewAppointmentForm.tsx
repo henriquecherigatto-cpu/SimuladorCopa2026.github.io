@@ -13,7 +13,13 @@ import {
   type CustomerOption,
 } from "@/components/agenda/CustomerPicker";
 import { createAppointment, fetchAvailableSlots } from "@/lib/actions/appointments";
-import { cn, formatCurrencyBRL, hhmmToMinutes, minutesToHHMM } from "@/lib/utils";
+import {
+  cn,
+  formatCurrencyBRL,
+  hhmmToMinutes,
+  minutesToHHMM,
+  todayISOInAppTimezone,
+} from "@/lib/utils";
 
 export interface ServiceOption {
   id: string;
@@ -48,7 +54,7 @@ export function NewAppointmentForm({
 
   const [serviceId, setServiceId] = React.useState("");
   const [professionalIdRaw, setProfessionalIdRaw] = React.useState("");
-  const [date, setDate] = React.useState(format(new Date(), "yyyy-MM-dd"));
+  const [date, setDate] = React.useState(todayISOInAppTimezone());
   const [timeRaw, setTime] = React.useState("");
   const [notes, setNotes] = React.useState("");
 
@@ -290,7 +296,7 @@ export function NewAppointmentForm({
           <input
             type="date"
             value={date}
-            min={format(new Date(), "yyyy-MM-dd")}
+            min={todayISOInAppTimezone()}
             onChange={(e) => setDate(e.target.value)}
             className="h-11 w-full rounded-xl border border-black/10 bg-white px-3.5 text-sm text-brand-graphite outline-none focus:border-brand-orange focus:ring-2 focus:ring-brand-orange/20"
           />

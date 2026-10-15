@@ -9,7 +9,7 @@ import { Modal } from "@/components/ui/Modal";
 import { Input } from "@/components/ui/Input";
 import { Alert } from "@/components/ui/Alert";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
-import { cn } from "@/lib/utils";
+import { cn, todayISOInAppTimezone } from "@/lib/utils";
 import {
   createCompanyTimeBlock,
   deleteCompanyTimeBlock,
@@ -17,7 +17,7 @@ import {
   type CompanyTimeBlockRow,
 } from "@/lib/actions/time-blocks";
 
-const todayISO = () => format(new Date(), "yyyy-MM-dd");
+const todayISO = todayISOInAppTimezone;
 
 /**
  * Owner-only: close the whole agenda (every professional) for a date
