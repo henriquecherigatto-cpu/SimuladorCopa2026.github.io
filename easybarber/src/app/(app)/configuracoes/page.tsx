@@ -9,7 +9,7 @@ export default async function ConfiguracoesPage() {
 
   const { data: company, error } = await supabase
     .from("companies")
-    .select("id, name, phone, whatsapp_number, address")
+    .select("id, name, phone, whatsapp_number, address, cnpj")
     .eq("id", companyId)
     .single();
   if (error) throw error;
