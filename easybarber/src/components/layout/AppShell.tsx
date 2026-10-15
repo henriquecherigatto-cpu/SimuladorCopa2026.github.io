@@ -6,6 +6,10 @@ import { TopBar } from "@/components/layout/TopBar";
 import { MobileBottomNav } from "@/components/layout/MobileBottomNav";
 import { MoreSheet } from "@/components/layout/MoreSheet";
 import { SupportWhatsAppButton } from "@/components/layout/SupportWhatsAppButton";
+import {
+  SubscriptionStatusModal,
+  type SubscriptionAlert,
+} from "@/components/layout/SubscriptionStatusModal";
 
 export interface AppShellIdentity {
   userName: string;
@@ -17,9 +21,11 @@ export interface AppShellIdentity {
 export function AppShell({
   children,
   identity,
+  subscriptionAlert = null,
 }: {
   children: React.ReactNode;
   identity: AppShellIdentity;
+  subscriptionAlert?: SubscriptionAlert | null;
 }) {
   const [moreOpen, setMoreOpen] = React.useState(false);
 
@@ -46,6 +52,7 @@ export function AppShell({
         isPlatformAdmin={identity.isPlatformAdmin}
       />
       <SupportWhatsAppButton />
+      <SubscriptionStatusModal alert={subscriptionAlert} />
     </div>
   );
 }

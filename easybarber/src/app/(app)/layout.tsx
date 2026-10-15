@@ -1,7 +1,10 @@
 import type { ReactNode } from "react";
 import { redirect } from "next/navigation";
+import { differenceInCalendarDays, format } from "date-fns";
 import { AppShell } from "@/components/layout/AppShell";
+import type { SubscriptionAlert } from "@/components/layout/SubscriptionStatusModal";
 import { createClient } from "@/lib/supabase/server";
+import { todayInAppTimezone } from "@/lib/utils";
 
 const ROLE_LABELS: Record<string, string> = {
   owner: "Proprietário",
@@ -33,7 +36,7 @@ export default async function AppGroupLayout({
       .single(),
     supabase
       .from("company_members")
-      .select("role, companies ( name )")
+      .select("role, company_id, companies ( name )")
       .eq("profile_id", userId)
       .limit(1)
       .maybeSingle(),
@@ -48,6 +51,34 @@ export default async function AppGroupLayout({
     redirect("/onboarding/empresa");
   }
 
+  // Billing status is only visible to an owner (subscriptions_select
+  // RLS policy denies it to a professional and to a bare platform
+  // admin with no company), and only an owner can act on it — a
+  // professional has no reason to see a payment warning they can't
+  // do anything about.
+  let subscriptionAlert: SubscriptionAlert | null = null;
+  if (membership?.role === "owner") {
+    const { data: subscription } = await supabase
+      .from("subscriptions")
+      .select("status, grace_period_ends_at")
+      .eq("company_id", membership.company_id)
+      .maybeSingle();
+
+    if (subscription?.status === "suspensa") {
+      subscriptionAlert = { variant: "suspended" };
+    } else if (subscription?.status === "tolerancia" && subscription.grace_period_ends_at) {
+      const blockDate = new Date(`${subscription.grace_period_ends_at}T00:00:00`);
+      const daysRemaining = differenceInCalendarDays(blockDate, todayInAppTimezone());
+      if (daysRemaining >= 0) {
+        subscriptionAlert = {
+          variant: "grace",
+          daysRemaining,
+          blockDateLabel: format(blockDate, "dd/MM/yyyy"),
+        };
+      }
+    }
+  }
+
   const identity = {
     userName: profile?.full_name || profile?.email || "Usuário",
     companyName: membership?.companies?.name ?? null,
@@ -57,5 +88,9 @@ export default async function AppGroupLayout({
     isPlatformAdmin,
   };
 
-  return <AppShell identity={identity}>{children}</AppShell>;
+  return (
+    <AppShell identity={identity} subscriptionAlert={subscriptionAlert}>
+      {children}
+    </AppShell>
+  );
 }

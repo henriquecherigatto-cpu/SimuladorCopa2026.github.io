@@ -25,6 +25,7 @@ import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { SubscriptionStatusBadge } from "@/components/ui/StatusBadge";
 import { RevenueChart } from "@/components/admin/RevenueChart";
 import {
+  grantSubscriptionAccess,
   updatePlanPrice,
   updateSubscriptionStatus,
   type AdminAuditLogRow,
@@ -52,6 +53,7 @@ export function AdminPageClient({
   const [query, setQuery] = React.useState("");
   const [editingPlan, setEditingPlan] = React.useState<AdminPlanRow | null>(null);
   const [suspendTarget, setSuspendTarget] = React.useState<AdminCompanyRow | null>(null);
+  const [grantTarget, setGrantTarget] = React.useState<AdminCompanyRow | null>(null);
   const [busyCompanyId, setBusyCompanyId] = React.useState<string | null>(null);
 
   const filtered = companies.filter((c) =>
@@ -61,13 +63,6 @@ export function AdminPageClient({
   const atRisk = companies.filter(
     (c) => c.subscription_status === "pendente" || c.subscription_status === "tolerancia",
   ).length;
-
-  const handleReactivate = async (company: AdminCompanyRow) => {
-    setBusyCompanyId(company.company_id);
-    const result = await updateSubscriptionStatus(company.company_id, "ativa");
-    setBusyCompanyId(null);
-    if (result.ok) router.refresh();
-  };
 
   const handleSuspend = async () => {
     if (!suspendTarget) return;
@@ -197,18 +192,21 @@ export function AdminPageClient({
                         : "—"}
                     </td>
                     <td className="px-5 py-3.5 text-right">
-                      <Button
-                        size="sm"
-                        variant={c.subscription_status === "suspensa" ? "secondary" : "danger"}
-                        loading={busyCompanyId === c.company_id}
-                        onClick={() =>
-                          c.subscription_status === "suspensa"
-                            ? handleReactivate(c)
-                            : setSuspendTarget(c)
-                        }
-                      >
-                        {c.subscription_status === "suspensa" ? "Reativar" : "Suspender"}
-                      </Button>
+                      <div className="flex items-center justify-end gap-2">
+                        {c.subscription_status !== "suspensa" && (
+                          <Button
+                            size="sm"
+                            variant="danger"
+                            loading={busyCompanyId === c.company_id}
+                            onClick={() => setSuspendTarget(c)}
+                          >
+                            Suspender
+                          </Button>
+                        )}
+                        <Button size="sm" variant="secondary" onClick={() => setGrantTarget(c)}>
+                          Liberar acesso
+                        </Button>
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -305,6 +303,15 @@ export function AdminPageClient({
         }}
       />
 
+      <GrantAccessModal
+        company={grantTarget}
+        onClose={() => setGrantTarget(null)}
+        onGranted={() => {
+          setGrantTarget(null);
+          router.refresh();
+        }}
+      />
+
       <ConfirmDialog
         open={!!suspendTarget}
         title="Suspender esta empresa?"
@@ -334,6 +341,16 @@ function describeAuditAction(entry: AdminAuditLogRow): string {
       const from = typeof metadata.from === "string" ? metadata.from : "?";
       const to = typeof metadata.to === "string" ? metadata.to : "?";
       return `Status de assinatura alterado de ${from} para ${to}`;
+    }
+    case "admin_granted_subscription_access": {
+      const days = typeof metadata.days === "number" ? metadata.days : null;
+      const newPeriodEnd =
+        typeof metadata.new_period_end === "string" ? metadata.new_period_end : null;
+      const daysText = days != null ? ` (+${days} dia${days === 1 ? "" : "s"})` : "";
+      const untilText = newPeriodEnd
+        ? ` — válido até ${format(new Date(`${newPeriodEnd}T00:00:00`), "dd/MM/yyyy")}`
+        : "";
+      return `Acesso liberado manualmente${daysText}${untilText}`;
     }
     default:
       return entry.action.replaceAll("_", " ");
@@ -400,6 +417,81 @@ function EditPlanFormFields({
       </p>
       <Button type="submit" fullWidth loading={submitting}>
         Salvar plano
+      </Button>
+    </form>
+  );
+}
+
+function GrantAccessModal({
+  company,
+  onClose,
+  onGranted,
+}: {
+  company: AdminCompanyRow | null;
+  onClose: () => void;
+  onGranted: () => void;
+}) {
+  return (
+    <Modal
+      open={!!company}
+      onClose={onClose}
+      title={company ? `Liberar acesso — ${company.company_name}` : ""}
+    >
+      {company && <GrantAccessFormFields company={company} onGranted={onGranted} />}
+    </Modal>
+  );
+}
+
+function GrantAccessFormFields({
+  company,
+  onGranted,
+}: {
+  company: AdminCompanyRow;
+  onGranted: () => void;
+}) {
+  const [days, setDays] = React.useState("7");
+  const [submitting, setSubmitting] = React.useState(false);
+  const [error, setError] = React.useState<string | null>(null);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError(null);
+    const value = Number(days);
+    if (!Number.isInteger(value) || value < 1 || value > 365) {
+      setError("Informe um número de dias entre 1 e 365.");
+      return;
+    }
+    setSubmitting(true);
+    const result = await grantSubscriptionAccess(company.company_id, value);
+    setSubmitting(false);
+    if (!result.ok) {
+      setError(result.error);
+      return;
+    }
+    onGranted();
+  };
+
+  return (
+    <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+      {error && <Alert variant="error">{error}</Alert>}
+      <p className="text-sm text-brand-graphite/70">
+        Use isso quando a barbearia avisar que vai pagar (por exemplo, pelo
+        WhatsApp) mas o pagamento ainda não foi identificado
+        automaticamente no sistema. A empresa é marcada como ativa e o
+        acesso é liberado pelos próximos dias que você escolher — mesmo
+        que esteja suspensa agora.
+      </p>
+      <Input
+        label="Quantos dias?"
+        type="number"
+        min={1}
+        max={365}
+        inputMode="numeric"
+        value={days}
+        onChange={(e) => setDays(e.target.value)}
+      />
+      <Button type="submit" fullWidth loading={submitting}>
+        Liberar acesso
       </Button>
     </form>
   );
