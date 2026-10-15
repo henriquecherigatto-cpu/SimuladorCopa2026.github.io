@@ -13,7 +13,7 @@ import {
   listAppointmentsInRange,
   type AppointmentListItem,
 } from "@/lib/actions/appointments";
-import { cn, hhmmToMinutes, minutesToHHMM } from "@/lib/utils";
+import { cn, hhmmToMinutes, minutesToHHMM, todayISOInAppTimezone } from "@/lib/utils";
 
 const SLOT_MINUTES = 30;
 const ROW_HEIGHT = 64; // px per 30-minute slot
@@ -132,7 +132,7 @@ export function AgendaDayView({
   professionals: ProfessionalChip[];
   businessHours: BusinessHoursRow[];
 }) {
-  const [selectedDate, setSelectedDate] = React.useState(() => toISODate(new Date()));
+  const [selectedDate, setSelectedDate] = React.useState(() => todayISOInAppTimezone());
   const [activeProfessional, setActiveProfessional] = React.useState<
     string | "todos"
   >("todos");
@@ -172,7 +172,7 @@ export function AgendaDayView({
     start_time: "08:00",
     end_time: "18:00",
   };
-  const isToday = selectedDate === toISODate(new Date());
+  const isToday = selectedDate === todayISOInAppTimezone();
 
   const dayAppointments = appointments.filter(
     (a) =>
@@ -232,7 +232,7 @@ export function AgendaDayView({
           </button>
           {!isToday && (
             <button
-              onClick={() => setSelectedDate(toISODate(new Date()))}
+              onClick={() => setSelectedDate(todayISOInAppTimezone())}
               className="rounded-lg px-2.5 py-1.5 text-xs font-medium text-brand-orange hover:bg-brand-orange/10"
             >
               Hoje

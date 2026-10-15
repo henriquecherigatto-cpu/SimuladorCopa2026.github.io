@@ -1,5 +1,6 @@
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
+import { formatInTimeZone } from "date-fns-tz";
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -19,6 +20,26 @@ export function cn(...inputs: ClassValue[]) {
  * (src/lib/actions/public-booking.ts).
  */
 export const APP_TIMEZONE = "America/Sao_Paulo";
+
+/**
+ * "Today", as a YYYY-MM-DD string, in the business's own timezone —
+ * never the runtime's system clock. A plain `new Date()` rendered as
+ * a calendar date disagrees with itself between the server (this
+ * container runs in UTC) and a browser in Brazil for several hours
+ * every day (e.g. 21:30 in São Paulo is already past midnight UTC),
+ * which both mis-defaults "today" in the UI and triggers a
+ * server/client hydration mismatch. Used anywhere agenda UI needs
+ * "today" as a default/comparison value — see AgendaDayView,
+ * AgendaWeekView, TimeBlockManager, NewAppointmentForm.
+ */
+export function todayISOInAppTimezone(): string {
+  return formatInTimeZone(new Date(), APP_TIMEZONE, "yyyy-MM-dd");
+}
+
+/** Same as todayISOInAppTimezone(), as a local-midnight Date object — for date-fns functions (startOfWeek, isSameDay) that expect a Date. */
+export function todayInAppTimezone(): Date {
+  return new Date(`${todayISOInAppTimezone()}T00:00:00`);
+}
 
 export function formatCurrencyBRL(value: number): string {
   return value.toLocaleString("pt-BR", {

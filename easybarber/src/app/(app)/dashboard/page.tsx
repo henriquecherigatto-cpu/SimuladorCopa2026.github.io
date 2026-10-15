@@ -19,22 +19,33 @@ import { Avatar } from "@/components/ui/Avatar";
 import { AppointmentStatusBadge } from "@/components/ui/StatusBadge";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { BookingLinkCard } from "@/components/dashboard/BookingLinkCard";
-import { formatCurrencyBRL } from "@/lib/utils";
+import { formatCurrencyBRL, todayISOInAppTimezone, todayInAppTimezone, APP_TIMEZONE } from "@/lib/utils";
 import { requireMembership } from "@/lib/supabase/current-user";
+import { listAppointmentsInRange } from "@/lib/actions/appointments";
+import { fromZonedTime } from "date-fns-tz";
 
 export const metadata: Metadata = { title: "Painel — Easy Barber" };
 
 export default async function DashboardPage() {
   const { supabase, companyId, userId } = await requireMembership();
 
-  const today = new Date();
-  const todayStr = format(today, "yyyy-MM-dd");
+  // today/monthStart are company-local (Brazil) calendar values — this
+  // container (like Vercel) runs in UTC, so a bare `new Date()` here
+  // disagrees with São Paulo for ~3h every evening (21h-23h59 SP is
+  // already tomorrow in UTC), which previously made "hoje" silently
+  // mean the wrong day during exactly the hours a barbershop is
+  // busiest. See 20260101000022_fix_appointment_timezone.sql and
+  // listAppointmentsInRange(), which this page now reuses instead of
+  // re-deriving the same boundary math inline.
+  const today = todayInAppTimezone();
+  const todayStr = todayISOInAppTimezone();
   const monthStart = `${todayStr.slice(0, 7)}-01`;
+  const monthStartUTC = fromZonedTime(`${monthStart}T00:00:00`, APP_TIMEZONE).toISOString();
 
   const [
     { data: profile },
     { data: company },
-    { data: todaysAppointments },
+    todaysAppointmentsResult,
     { count: activeProfessionalsCount },
     { count: activeServicesCount },
     { count: totalCustomersCount },
@@ -42,15 +53,7 @@ export default async function DashboardPage() {
   ] = await Promise.all([
     supabase.from("profiles").select("full_name").eq("id", userId).single(),
     supabase.from("companies").select("slug").eq("id", companyId).single(),
-    supabase
-      .from("appointments")
-      .select(
-        "id, starts_at, status, customer:customers!appointments_customer_id_fkey(name), service:services!appointments_service_id_fkey(name, price_cents), professional:professionals!appointments_professional_id_fkey(name, color)",
-      )
-      .eq("company_id", companyId)
-      .gte("starts_at", `${todayStr}T00:00:00Z`)
-      .lt("starts_at", `${todayStr}T23:59:59.999Z`)
-      .order("starts_at", { ascending: true }),
+    listAppointmentsInRange(todayStr, todayStr),
     supabase
       .from("professionals")
       .select("id", { count: "exact", head: true })
@@ -69,10 +72,10 @@ export default async function DashboardPage() {
       .from("customers")
       .select("id", { count: "exact", head: true })
       .eq("company_id", companyId)
-      .gte("created_at", `${monthStart}T00:00:00Z`),
+      .gte("created_at", monthStartUTC),
   ]);
 
-  const appointments = todaysAppointments ?? [];
+  const appointments = todaysAppointmentsResult.ok ? todaysAppointmentsResult.data : [];
   const revenueToday = appointments
     .filter((a) => a.status !== "cancelado")
     .reduce((sum, a) => sum + (a.service?.price_cents ?? 0), 0);

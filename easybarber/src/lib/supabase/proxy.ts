@@ -2,7 +2,7 @@ import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import type { Database } from "@/lib/supabase/database.types";
 
-const PUBLIC_ROUTES = ["/login", "/cadastro", "/recuperar-senha"];
+const PUBLIC_ROUTES = ["/", "/login", "/cadastro", "/recuperar-senha"];
 
 // Accessible regardless of auth state, and never redirected either
 // way — unlike PUBLIC_ROUTES (login/cadastro/...), which bounce an
@@ -59,12 +59,6 @@ export async function updateSession(request: NextRequest) {
   const isAlwaysAccessible = ALWAYS_ACCESSIBLE_PREFIXES.some((prefix) =>
     pathname.startsWith(prefix),
   );
-
-  if (pathname === "/") {
-    const url = request.nextUrl.clone();
-    url.pathname = isAuthenticated ? "/dashboard" : "/login";
-    return NextResponse.redirect(url);
-  }
 
   if (isAlwaysAccessible) {
     return response;

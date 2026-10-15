@@ -13,7 +13,7 @@ import {
   listAppointmentsInRange,
   type AppointmentListItem,
 } from "@/lib/actions/appointments";
-import { cn } from "@/lib/utils";
+import { cn, todayISOInAppTimezone, todayInAppTimezone } from "@/lib/utils";
 import type { ProfessionalChip } from "@/components/agenda/AgendaDayView";
 
 function toISODate(date: Date) {
@@ -26,12 +26,12 @@ export function AgendaWeekView({
   professionals: ProfessionalChip[];
 }) {
   const [weekStart, setWeekStart] = React.useState(() =>
-    startOfWeek(new Date(), { weekStartsOn: 1 }),
+    startOfWeek(todayInAppTimezone(), { weekStartsOn: 1 }),
   );
   const [activeProfessional, setActiveProfessional] = React.useState<
     string | "todos"
   >("todos");
-  const [mobileDay, setMobileDay] = React.useState(() => toISODate(new Date()));
+  const [mobileDay, setMobileDay] = React.useState(() => todayISOInAppTimezone());
   const [detailsAppt, setDetailsAppt] = React.useState<AppointmentListItem | null>(
     null,
   );
@@ -118,7 +118,7 @@ export function AgendaWeekView({
             <ChevronRight className="size-4" />
           </button>
           <button
-            onClick={() => setWeekStart(startOfWeek(new Date(), { weekStartsOn: 1 }))}
+            onClick={() => setWeekStart(startOfWeek(todayInAppTimezone(), { weekStartsOn: 1 }))}
             className="rounded-lg px-2.5 py-1.5 text-xs font-medium text-brand-orange hover:bg-brand-orange/10"
           >
             Hoje
@@ -177,7 +177,7 @@ export function AgendaWeekView({
           {/* Desktop: 7-column grid */}
           <div className="hidden grid-cols-7 gap-3 sm:grid">
             {days.map((day) => {
-              const isToday = isSameDay(day, new Date());
+              const isToday = isSameDay(day, todayInAppTimezone());
               const dayAppts = getDayAppointments(day);
               return (
                 <div
@@ -224,7 +224,7 @@ export function AgendaWeekView({
               {days.map((day) => {
                 const iso = toISODate(day);
                 const isSelected = iso === mobileDay;
-                const isToday = isSameDay(day, new Date());
+                const isToday = isSameDay(day, todayInAppTimezone());
                 return (
                   <button
                     key={iso}
