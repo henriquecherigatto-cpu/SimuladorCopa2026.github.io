@@ -47,7 +47,7 @@ export async function createCheckoutSession(
     if (!company) throw new Error("Barbearia não encontrada.");
     if (!company.cnpj) {
       throw new Error(
-        "Cadastre o CNPJ da sua barbearia em Configurações antes de assinar um plano.",
+        "Cadastre o CPF ou CNPJ da sua barbearia em Configurações antes de assinar um plano.",
       );
     }
 

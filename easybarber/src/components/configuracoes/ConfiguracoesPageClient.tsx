@@ -321,12 +321,12 @@ function CompanyFormFields({
         disabled={!canManage}
       />
       <Input
-        label="CNPJ"
+        label="CPF ou CNPJ"
         leftIcon={<FileText className="size-4" />}
         value={cnpj}
         onChange={(e) => setCnpj(e.target.value)}
-        placeholder="00.000.000/0000-00"
-        hint="Necessário para gerar cobranças via Pix na tela de Plano e assinatura."
+        placeholder="Apenas números"
+        hint="Necessário para gerar cobranças via Pix na tela de Plano e assinatura. Pode ser o CPF do responsável ou o CNPJ da barbearia — o que você tiver."
         disabled={!canManage}
       />
       {canManage && (
