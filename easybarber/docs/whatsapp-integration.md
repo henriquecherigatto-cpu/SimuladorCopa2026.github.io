@@ -102,9 +102,48 @@ can't be used to probe which tokens are real.
    see "One shared sender, not one per company" below for why.
 
 Leaving the four `TWILIO_*` vars unset is a valid, deliberate state during
-development — `isConfigured()` returns `false`, `sendBookingConfirmation()`
-returns early, and a public booking still succeeds exactly as before; it
-just never sends the WhatsApp message.
+development — `isConfigured("booking_confirmation")` returns `false`,
+`sendBookingConfirmation()` returns early, and a public booking still
+succeeds exactly as before; it just never sends the WhatsApp message.
+
+## Second template: subscription grace-period reminder
+
+A second, unrelated business-initiated message: the moment a company's
+subscription enters the post-`vencimento` grace period (the daily sweep
+moves it `ativa` → `tolerancia` — see
+`supabase/migrations/20260101000017_subscription_lifecycle.sql`),
+`notifyCompanyEnteringGracePeriod()` (`src/lib/actions/subscription-notifications.ts`)
+WhatsApps the **barbershop's own number** (`companies.whatsapp_number`,
+not the platform's support line and not any customer) saying how many days
+remain before the system blocks new bookings.
+
+WhatsApp approval is per exact template wording, not a blanket "this
+account can send templates" — so this needs its own Content Template and
+its own Content SID, entirely separate from the booking confirmation's:
+
+1. Twilio Console → Messaging → Content Template Builder → Create new →
+   WhatsApp → Text.
+2. Category: **Utility** (same reasoning as the booking confirmation — a
+   transactional notice tied to the account's own billing state, not
+   marketing).
+3. Language: Portuguese (Brazil).
+4. Body, exactly (three numbered variables, in this order — the code in
+   `notifyCompanyEnteringGracePeriod()` fills them in this exact order):
+   ```
+   Olá, {{1}}! Não identificamos o pagamento da sua assinatura do Easy Barber. Você tem {{2}} dia(s) para regularizar antes que o sistema seja bloqueado automaticamente em {{3}}. Qualquer dúvida, é só responder esta mensagem.
+   ```
+   (`{{1}}` company name, `{{2}}` days remaining, `{{3}}` the exact block
+   date, already formatted `dd/MM/yyyy`.)
+5. Submit for WhatsApp approval, then copy its Content SID (`HX...`) into
+   `TWILIO_CONTENT_SID_GRACE_REMINDER`.
+
+Leaving `TWILIO_CONTENT_SID_GRACE_REMINDER` unset is independent from the
+booking-confirmation template: `isConfigured("subscription_grace_reminder")`
+returns `false` and the sweep route's own response still succeeds exactly
+as before (the state machine transition itself is never gated on this),
+it just never sends this particular message — the booking-confirmation
+template can be fully working while this one isn't configured yet, or
+vice versa.
 
 ## One shared sender, not one per company
 

@@ -414,6 +414,7 @@ export type Database = {
           period: string;
           price_cents: number;
           updated_at: string;
+          whatsapp_confirmations_included: boolean;
         };
         ComputedFields: never;
         Insert: {
@@ -427,6 +428,7 @@ export type Database = {
           period?: string;
           price_cents: number;
           updated_at?: string;
+          whatsapp_confirmations_included?: boolean;
         };
         Update: {
           active?: boolean;
@@ -439,6 +441,7 @@ export type Database = {
           period?: string;
           price_cents?: number;
           updated_at?: string;
+          whatsapp_confirmations_included?: boolean;
         };
         Relationships: [];
       };
@@ -961,7 +964,8 @@ export type Database = {
       is_platform_admin: { Args: Record<PropertyKey, never>; Returns: boolean };
       log_whatsapp_message: {
         Args: {
-          p_appointment_id: string;
+          p_appointment_id?: string;
+          p_company_id?: string;
           p_error?: string;
           p_provider: string;
           p_provider_message_id?: string;

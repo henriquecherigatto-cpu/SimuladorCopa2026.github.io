@@ -35,11 +35,13 @@ and what it takes to point this at a real Asaas account.
   after checkout (`/plano?checkout=pendente`) is informational only — the
   real status the UI shows always comes from the `subscriptions` row, which
   only the webhook can update.
-- No card number, CVV or card token ever reaches this application's server.
+- No payment credential ever reaches this application's server.
   `createCheckoutSession` creates an Asaas customer + subscription via their
   API and hands back the `invoiceUrl` of the generated invoice — a page
-  hosted on `asaas.com` where the payer picks Pix, boleto or card. Card entry
-  happens entirely on Asaas's own page.
+  hosted on `asaas.com` showing the Pix QR code/copy-paste key. Every
+  subscription is created with `billingType: "PIX"` — the platform owner's
+  own choice to offer only Pix for now (Asaas itself also supports boleto
+  and card; this is this app's own restriction, in `src/lib/billing/asaas.ts`).
 
 ## Going live
 

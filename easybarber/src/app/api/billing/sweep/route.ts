@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
+import { notifyCompanyEnteringGracePeriod } from "@/lib/actions/subscription-notifications";
 
 export const runtime = "nodejs";
 
@@ -7,11 +8,13 @@ export const runtime = "nodejs";
  * Triggers the date-driven half of the subscription state machine
  * (ativa → tolerancia once a due date passes, tolerancia → suspensa
  * once the 10-day grace period runs out — see
- * supabase/migrations/20260101000017_subscription_lifecycle.sql).
- * Nothing announces these transitions on its own; something has to
- * check the clock. In production, point an external scheduler at
- * this route (Vercel Cron, a GitHub Actions cron job, or a Supabase
- * scheduled Edge Function) — see docs/billing-integration.md.
+ * supabase/migrations/20260101000017_subscription_lifecycle.sql), then
+ * WhatsApps each company that just entered tolerancia (see
+ * notifyCompanyEnteringGracePeriod()) — nothing else announces either
+ * one on its own; something has to check the clock. In production,
+ * point an external scheduler at this route (Vercel Cron, a GitHub
+ * Actions cron job, or a Supabase scheduled Edge Function) — see
+ * docs/billing-integration.md.
  *
  * Protected by a shared secret rather than Supabase auth because the
  * caller here is a scheduler, not a signed-in user. Safe to call more
@@ -46,7 +49,26 @@ async function handleSweep(request: Request) {
     return NextResponse.json({ error: "sweep failed" }, { status: 500 });
   }
 
-  return NextResponse.json({ ok: true, transitions: data });
+  const transitions = data ?? [];
+
+  // Tell the barbershop itself, by WhatsApp, the moment it enters the
+  // grace period — not on every sweep run afterwards, just this one
+  // transition. A notification failure must never fail the sweep
+  // response: the state machine itself already ran and committed
+  // above regardless of whether this message goes out.
+  const enteredGracePeriod = transitions.filter((t) => t.new_status === "tolerancia");
+  await Promise.all(
+    enteredGracePeriod.map((t) =>
+      notifyCompanyEnteringGracePeriod(t.company_id).catch((err) => {
+        console.error(
+          `billing sweep: failed to notify company ${t.company_id} entering grace period`,
+          err,
+        );
+      }),
+    ),
+  );
+
+  return NextResponse.json({ ok: true, transitions });
 }
 
 export const GET = handleSweep;
