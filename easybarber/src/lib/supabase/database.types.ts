@@ -858,6 +858,10 @@ export type Database = {
           whatsapp_messages_this_month: number;
         }[];
       };
+      admin_grant_subscription_access: {
+        Args: { p_company_id: string; p_days: number };
+        Returns: string;
+      };
       admin_platform_metrics: {
         Args: Record<PropertyKey, never>;
         Returns: {

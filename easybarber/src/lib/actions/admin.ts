@@ -163,3 +163,31 @@ export async function updateSubscriptionStatus(
     return undefined;
   });
 }
+
+/**
+ * Manual override for a payment confirmed outside the automated flow
+ * (Pix/WhatsApp, while real checkout isn't live) — extends the
+ * company's paid-through date by `days` and marks it ativa again,
+ * regardless of its current status. See admin_grant_subscription_access()
+ * in supabase/migrations/20260101000025_admin_subscription_control.sql.
+ */
+export async function grantSubscriptionAccess(
+  companyId: string,
+  days: number,
+): Promise<ActionResult<{ newPeriodEnd: string }>> {
+  return runAction(async () => {
+    const { supabase } = await requirePlatformAdmin();
+    if (!Number.isInteger(days) || days < 1 || days > 365) {
+      throw new Error("Informe um número de dias entre 1 e 365.");
+    }
+
+    const { data, error } = await supabase.rpc("admin_grant_subscription_access", {
+      p_company_id: companyId,
+      p_days: days,
+    });
+    if (error) throw error;
+
+    revalidatePath("/admin");
+    return { newPeriodEnd: data as string };
+  });
+}
