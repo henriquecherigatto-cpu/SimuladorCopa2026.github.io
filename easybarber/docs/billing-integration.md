@@ -73,11 +73,11 @@ and what it takes to point this at a real Asaas account.
      `select public.sweep_subscription_lifecycle();` directly inside
      Postgres, if your project has the `pg_cron` extension enabled — the
      function itself doesn't care which trigger calls it.
-5. **CNPJ**: `createCheckoutSession` requires `companies.cnpj` to be set
-   (Asaas needs a CPF/CNPJ to issue an invoice) — the Server Action returns a
-   clear error pointing the owner at Configurações if it's missing. There's
-   no CNPJ-editing UI yet; that's the one remaining piece before "Gerenciar
-   assinatura" is end-to-end usable from the Plano screen.
+5. **CPF/CNPJ**: `createCheckoutSession` requires `companies.cnpj` to be set
+   (Asaas needs a CPF/CNPJ to issue an invoice — the column is named `cnpj`
+   but holds either) — the Server Action returns a clear error pointing the
+   owner at Configurações if it's missing. Editable from Configurações →
+   Dados da barbearia → "CPF ou CNPJ".
 
 ## Verifying it without a real Asaas account
 
