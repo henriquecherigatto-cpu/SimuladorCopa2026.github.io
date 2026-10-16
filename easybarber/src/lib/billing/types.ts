@@ -74,6 +74,19 @@ export interface CheckoutSession {
   /** Hosted checkout URL to redirect the owner's browser to. */
   url: string;
   externalCustomerId: string;
+  /** The provider's own subscription id — see getOpenInvoice() below. */
+  externalSubscriptionId: string;
+}
+
+/** The subscription's current not-yet-successfully-paid charge, if any. */
+export interface OpenInvoice {
+  /** Hosted invoice page (Pix QR code/copy-paste key), same kind of URL as CheckoutSession.url. */
+  url: string;
+  /** ISO date (YYYY-MM-DD) this charge was/is due. */
+  dueDate: string;
+  amountCents: number;
+  /** True once the due date has passed with no payment recorded yet. */
+  overdue: boolean;
 }
 
 /**
@@ -90,6 +103,17 @@ export interface PaymentProvider {
   isConfigured(): boolean;
 
   createCheckoutSession(input: CreateCheckoutSessionInput): Promise<CheckoutSession>;
+
+  /**
+   * The subscription's current open (not yet successfully paid)
+   * charge, if one exists — so the owner always has somewhere to find
+   * the payment link even if the provider's own notification (e.g.
+   * email) was missed. Read-only: never changes subscriptions.status,
+   * same as createCheckoutSession — only a verified webhook does that.
+   * Returns null if there's nothing currently open (e.g. this month
+   * already paid, or no charge generated yet).
+   */
+  getOpenInvoice(externalSubscriptionId: string): Promise<OpenInvoice | null>;
 
   /**
    * Verifies the webhook request genuinely came from the provider,

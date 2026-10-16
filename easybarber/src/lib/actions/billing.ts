@@ -84,7 +84,11 @@ export async function createCheckoutSession(
     const serviceRole = createServiceRoleClient();
     const { error: linkError } = await serviceRole
       .from("subscriptions")
-      .update({ external_customer_id: session.externalCustomerId, plan_id: plan.id })
+      .update({
+        external_customer_id: session.externalCustomerId,
+        external_subscription_id: session.externalSubscriptionId,
+        plan_id: plan.id,
+      })
       .eq("company_id", companyId);
 
     if (linkError) {
@@ -93,5 +97,37 @@ export async function createCheckoutSession(
     }
 
     return { url: session.url };
+  });
+}
+
+/**
+ * The subscription's current open (not yet paid) charge, if any — so
+ * the owner can always find the payment link from inside the app even
+ * if Asaas's own notification (email) was missed or went to spam.
+ * Read-only: see PaymentProvider.getOpenInvoice()'s own doc comment.
+ */
+export async function getOpenInvoiceLink(): Promise<
+  ActionResult<{ url: string; dueDate: string; amountCents: number; overdue: boolean } | null>
+> {
+  return runAction(async () => {
+    const { supabase, companyId, role } = await requireMembership();
+    assertOwner(role);
+
+    const provider = getPaymentProvider();
+    if (!provider.isConfigured()) {
+      throw new Error(
+        "O pagamento ainda não está configurado nesta instância. Fale com o suporte para ativar a cobrança da sua barbearia.",
+      );
+    }
+
+    const { data: subscription } = await supabase
+      .from("subscriptions")
+      .select("external_subscription_id")
+      .eq("company_id", companyId)
+      .single();
+
+    if (!subscription?.external_subscription_id) return null;
+
+    return provider.getOpenInvoice(subscription.external_subscription_id);
   });
 }

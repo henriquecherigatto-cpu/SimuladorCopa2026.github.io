@@ -3,7 +3,7 @@
 import * as React from "react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { AlertTriangle, Check, CreditCard, Receipt } from "lucide-react";
+import { AlertTriangle, Check, CreditCard, QrCode, Receipt } from "lucide-react";
 import { PageHeader } from "@/components/PageHeader";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
@@ -12,8 +12,15 @@ import { Alert } from "@/components/ui/Alert";
 import { Modal } from "@/components/ui/Modal";
 import { WhatsAppIcon } from "@/components/icons/WhatsAppIcon";
 import { SUPPORT_WHATSAPP_NUMBER } from "@/components/layout/SupportWhatsAppButton";
-import { createCheckoutSession } from "@/lib/actions/billing";
+import { createCheckoutSession, getOpenInvoiceLink } from "@/lib/actions/billing";
 import { buildWhatsAppLink, cn, formatCurrencyBRL } from "@/lib/utils";
+
+interface OpenInvoice {
+  url: string;
+  dueDate: string;
+  amountCents: number;
+  overdue: boolean;
+}
 
 type SubscriptionStatus = "pendente" | "ativa" | "tolerancia" | "suspensa" | "cancelada";
 
@@ -83,6 +90,11 @@ export function PlanoPageClient({
   const [checkoutError, setCheckoutError] = React.useState<string | null>(null);
   const [checkoutLoadingPlanId, setCheckoutLoadingPlanId] = React.useState<string | null>(null);
   const [cancelOpen, setCancelOpen] = React.useState(false);
+  const [openInvoice, setOpenInvoice] = React.useState<OpenInvoice | null>(null);
+  const [invoiceState, setInvoiceState] = React.useState<"idle" | "loading" | "found" | "none" | "error">(
+    "idle",
+  );
+  const [invoiceError, setInvoiceError] = React.useState<string | null>(null);
 
   // A real Asaas subscription (recurring Pix) only exists once the
   // owner has gone through checkout at least once. Before that,
@@ -111,6 +123,24 @@ export function PlanoPageClient({
   };
 
   const supportLink = (message: string) => buildWhatsAppLink(SUPPORT_WHATSAPP_NUMBER, message);
+
+  // Fetched on demand (button click), never automatically on page
+  // load: this hits Asaas's real API, and the subscription's status
+  // badge above already comes from our own database, kept current by
+  // the webhook — this is purely "is there a link to pay right now",
+  // for when the provider's own notification was missed.
+  const checkOpenInvoice = async () => {
+    setInvoiceState("loading");
+    setInvoiceError(null);
+    const result = await getOpenInvoiceLink();
+    if (!result.ok) {
+      setInvoiceState("error");
+      setInvoiceError(result.error);
+      return;
+    }
+    setOpenInvoice(result.data);
+    setInvoiceState(result.data ? "found" : "none");
+  };
 
   return (
     <div className="flex flex-col gap-5">
@@ -202,6 +232,63 @@ export function PlanoPageClient({
                 <Button variant="danger" fullWidth onClick={() => setCancelOpen(true)}>
                   Cancelar assinatura
                 </Button>
+              )}
+            </div>
+          )}
+
+          {canManage && (subscription.status === "ativa" || subscription.status === "tolerancia") && (
+            <div className="flex flex-col gap-3 rounded-xl border border-black/10 p-4">
+              {invoiceState === "idle" && (
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  icon={<Receipt className="size-4" />}
+                  onClick={checkOpenInvoice}
+                >
+                  Ver cobrança atual
+                </Button>
+              )}
+              {invoiceState === "loading" && (
+                <p className="text-sm text-brand-graphite/50">Consultando na Asaas…</p>
+              )}
+              {invoiceState === "error" && (
+                <>
+                  <p className="text-sm text-brand-error">{invoiceError}</p>
+                  <Button variant="secondary" size="sm" onClick={checkOpenInvoice}>
+                    Tentar de novo
+                  </Button>
+                </>
+              )}
+              {invoiceState === "none" && (
+                <p className="text-sm text-brand-graphite/50">
+                  Nenhuma cobrança em aberto no momento.
+                </p>
+              )}
+              {invoiceState === "found" && openInvoice && (
+                <>
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <div>
+                      <p className="text-sm font-medium text-brand-graphite">
+                        {openInvoice.overdue ? "Cobrança em atraso" : "Próxima cobrança"}
+                      </p>
+                      <p className="text-xs text-brand-graphite/50">
+                        Vencimento: {formatDate(openInvoice.dueDate)}
+                      </p>
+                    </div>
+                    <p className="text-lg font-bold text-brand-graphite">
+                      {formatCurrencyBRL(openInvoice.amountCents / 100)}
+                    </p>
+                  </div>
+                  <Button
+                    fullWidth
+                    icon={<QrCode className="size-4" />}
+                    href={openInvoice.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    Pagar via Pix
+                  </Button>
+                </>
               )}
             </div>
           )}

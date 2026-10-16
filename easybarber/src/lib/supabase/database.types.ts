@@ -679,6 +679,7 @@ export type Database = {
           created_at: string;
           current_period_end: string | null;
           external_customer_id: string | null;
+          external_subscription_id: string | null;
           grace_period_days: number;
           grace_period_ends_at: string | null;
           id: string;
@@ -693,6 +694,7 @@ export type Database = {
           created_at?: string;
           current_period_end?: string | null;
           external_customer_id?: string | null;
+          external_subscription_id?: string | null;
           grace_period_days?: number;
           grace_period_ends_at?: string | null;
           id?: string;
@@ -706,6 +708,7 @@ export type Database = {
           created_at?: string;
           current_period_end?: string | null;
           external_customer_id?: string | null;
+          external_subscription_id?: string | null;
           grace_period_days?: number;
           grace_period_ends_at?: string | null;
           id?: string;
