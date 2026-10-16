@@ -4,6 +4,7 @@ import { addMonths, format } from "date-fns";
 import type {
   CheckoutSession,
   CreateCheckoutSessionInput,
+  OpenInvoice,
   PaymentProvider,
   RawBillingEvent,
 } from "@/lib/billing/types";
@@ -123,7 +124,37 @@ export class AsaasProvider implements PaymentProvider {
       throw new Error("Asaas subscription created but no invoice was generated.");
     }
 
-    return { url: firstInvoice.invoiceUrl, externalCustomerId: customerId };
+    return {
+      url: firstInvoice.invoiceUrl,
+      externalCustomerId: customerId,
+      externalSubscriptionId: subscription.id,
+    };
+  }
+
+  async getOpenInvoice(externalSubscriptionId: string): Promise<OpenInvoice | null> {
+    if (!this.isConfigured()) return null;
+
+    // Filtered client-side rather than via an API-side status query
+    // param: GET /v3/payments?subscription= is the one call shape this
+    // adapter already relies on elsewhere (createCheckoutSession
+    // above), so this reuses exactly that instead of a second,
+    // unverified filter syntax.
+    const payments = await this.request<{
+      data: { invoiceUrl: string; dueDate: string; value: number; status: string }[];
+    }>(`/payments?subscription=${externalSubscriptionId}`);
+
+    const open = payments.data
+      .filter((p) => p.status === "PENDING" || p.status === "OVERDUE")
+      .sort((a, b) => a.dueDate.localeCompare(b.dueDate))[0];
+
+    if (!open) return null;
+
+    return {
+      url: open.invoiceUrl,
+      dueDate: open.dueDate,
+      amountCents: Math.round(open.value * 100),
+      overdue: open.status === "OVERDUE",
+    };
   }
 
   // rawBody is part of the PaymentProvider interface (some providers
