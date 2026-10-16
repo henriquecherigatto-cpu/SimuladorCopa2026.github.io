@@ -20,6 +20,45 @@ function toISODate(date: Date) {
   return format(date, "yyyy-MM-dd");
 }
 
+/**
+ * Appointments only ever overlap in time across DIFFERENT
+ * professionals — the database forbids one professional double-
+ * booking themselves (same exclusion constraint AgendaDayView.tsx's
+ * own layoutDayAppointments() relies on). Groups a day's appointments
+ * into clusters of transitively-overlapping times, so each cluster
+ * renders as one row of side-by-side chips instead of a plain vertical
+ * stack, which otherwise reads as a sequential queue even when two
+ * appointments are actually at the same time with different barbers.
+ */
+function groupOverlappingAppointments(
+  items: AppointmentListItem[],
+): AppointmentListItem[][] {
+  const withMillis = items
+    .map((appt) => ({
+      appt,
+      startMs: new Date(appt.starts_at).getTime(),
+      endMs: new Date(appt.ends_at).getTime(),
+    }))
+    .sort((a, b) => a.startMs - b.startMs || a.endMs - b.endMs);
+
+  const groups: AppointmentListItem[][] = [];
+  let current: typeof withMillis = [];
+  let currentEnd = -Infinity;
+  for (const item of withMillis) {
+    if (current.length === 0 || item.startMs < currentEnd) {
+      current.push(item);
+      currentEnd = Math.max(currentEnd, item.endMs);
+    } else {
+      groups.push(current.map((c) => c.appt));
+      current = [item];
+      currentEnd = item.endMs;
+    }
+  }
+  if (current.length > 0) groups.push(current.map((c) => c.appt));
+
+  return groups;
+}
+
 export function AgendaWeekView({
   professionals,
 }: {
@@ -208,8 +247,14 @@ export function AgendaWeekView({
                         Sem agendamentos
                       </p>
                     ) : (
-                      dayAppts.map((appt) => (
-                        <AppointmentChip key={appt.id} appt={appt} />
+                      groupOverlappingAppointments(dayAppts).map((group) => (
+                        <div key={group[0].id} className="flex gap-1.5">
+                          {group.map((appt) => (
+                            <div key={appt.id} className="min-w-0 flex-1">
+                              <AppointmentChip appt={appt} />
+                            </div>
+                          ))}
+                        </div>
                       ))
                     )}
                   </div>
@@ -265,12 +310,16 @@ export function AgendaWeekView({
                 }
                 return (
                   <div className="flex flex-col gap-2">
-                    {dayAppts.map((appt) => (
-                      <div key={appt.id} className="flex items-center gap-2">
-                        <div className="flex-1">
-                          <AppointmentChip appt={appt} />
-                        </div>
-                        <AppointmentStatusBadge status={appt.status} />
+                    {groupOverlappingAppointments(dayAppts).map((group) => (
+                      <div key={group[0].id} className="flex gap-1.5">
+                        {group.map((appt) => (
+                          <div key={appt.id} className="flex min-w-0 flex-1 items-center gap-2">
+                            <div className="min-w-0 flex-1">
+                              <AppointmentChip appt={appt} />
+                            </div>
+                            <AppointmentStatusBadge status={appt.status} />
+                          </div>
+                        ))}
                       </div>
                     ))}
                   </div>

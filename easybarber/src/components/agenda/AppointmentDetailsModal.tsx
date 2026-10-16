@@ -7,10 +7,11 @@ import { Clock, Scissors, StickyNote, User } from "lucide-react";
 import { Modal } from "@/components/ui/Modal";
 import { Avatar } from "@/components/ui/Avatar";
 import { AppointmentStatusBadge } from "@/components/ui/StatusBadge";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { Button } from "@/components/ui/Button";
 import { Alert } from "@/components/ui/Alert";
 import { cancelAppointment, updateAppointmentStatus } from "@/lib/actions/appointments";
-import { formatCurrencyBRL } from "@/lib/utils";
+import { buildWhatsAppLink, formatCurrencyBRL } from "@/lib/utils";
 import type { AppointmentListItem } from "@/lib/actions/appointments";
 
 export function AppointmentDetailsModal({
@@ -46,12 +47,11 @@ function AppointmentDetailsBody({
 }) {
   const [busy, setBusy] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
+  const [confirmCancelOpen, setConfirmCancelOpen] = React.useState(false);
 
   const { customer, service, professional } = appointment;
 
-  const changeStatus = async (
-    status: "confirmado" | "concluido" | "cancelado",
-  ) => {
+  const changeStatus = async (status: "concluido" | "cancelado") => {
     setBusy(true);
     setError(null);
     const result =
@@ -62,6 +62,15 @@ function AppointmentDetailsBody({
     if (!result.ok) {
       setError(result.error);
       return;
+    }
+    // Opens the owner's own WhatsApp with the message already typed —
+    // the owner reviews and sends it themselves, it's never sent
+    // automatically from the server. Only when there's a number to
+    // message and a browser to open it in (this modal is also used,
+    // unchanged, by any future non-browser caller).
+    if (status === "cancelado" && customer?.phone && typeof window !== "undefined") {
+      const message = `Olá, ${customer.name}! Infelizmente precisamos cancelar seu agendamento de ${service?.name ?? "serviço"} em ${format(new Date(appointment.starts_at), "dd/MM/yyyy")} às ${format(new Date(appointment.starts_at), "HH:mm", { locale: ptBR })}. Pedimos desculpas pelo transtorno e ficamos à disposição para reagendar.`;
+      window.open(buildWhatsAppLink(customer.phone, message), "_blank");
     }
     onChanged();
     onClose();
@@ -121,33 +130,19 @@ function AppointmentDetailsBody({
 
       {appointment.status !== "cancelado" && appointment.status !== "concluido" && (
         <div className="flex flex-col gap-2">
-          <div className="flex gap-2">
-            {appointment.status === "agendado" && (
-              <Button
-                variant="secondary"
-                fullWidth
-                loading={busy}
-                onClick={() => changeStatus("confirmado")}
-              >
-                Confirmar
-              </Button>
-            )}
-            {appointment.status === "confirmado" && (
-              <Button
-                variant="secondary"
-                fullWidth
-                loading={busy}
-                onClick={() => changeStatus("concluido")}
-              >
-                Concluir
-              </Button>
-            )}
-          </div>
+          <Button
+            variant="secondary"
+            fullWidth
+            loading={busy}
+            onClick={() => changeStatus("concluido")}
+          >
+            Concluir
+          </Button>
           <Button
             variant="danger"
             fullWidth
             loading={busy}
-            onClick={() => changeStatus("cancelado")}
+            onClick={() => setConfirmCancelOpen(true)}
           >
             Cancelar agendamento
           </Button>
@@ -157,6 +152,19 @@ function AppointmentDetailsBody({
       <Button variant="secondary" fullWidth onClick={onClose}>
         Fechar
       </Button>
+
+      <ConfirmDialog
+        open={confirmCancelOpen}
+        title="Cancelar agendamento"
+        description={`Tem certeza que deseja cancelar o agendamento de ${customer?.name ?? "cliente"}? O WhatsApp vai abrir para você avisar o cliente.`}
+        confirmLabel="Cancelar agendamento"
+        busy={busy}
+        onConfirm={() => {
+          setConfirmCancelOpen(false);
+          changeStatus("cancelado");
+        }}
+        onClose={() => setConfirmCancelOpen(false)}
+      />
     </div>
   );
 }

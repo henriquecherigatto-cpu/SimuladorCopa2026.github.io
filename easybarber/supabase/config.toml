@@ -161,7 +161,20 @@ site_url = "http://127.0.0.1:3000"
 # The public URL that Auth serves on. Defaults to the API external URL with `/auth/v1` appended.
 # external_url = ""
 # A list of *exact* URLs that auth providers are permitted to redirect to post authentication.
-additional_redirect_urls = ["https://127.0.0.1:3000"]
+# "Exact" really does mean exact, full path included — a mismatch (even
+# just a missing /atualizar-senha, or the wrong host spelling) isn't
+# rejected with an error; GoTrue silently substitutes site_url instead,
+# which looks fine right up until the reset email's link lands on the
+# wrong page with no session. ForgotPasswordForm.tsx builds its
+# redirectTo from window.location.origin, which during local dev is
+# localhost:3000 (not 127.0.0.1, despite site_url above) — both host
+# spellings are listed, each with the real target path, so the
+# redirect is never silently swapped out depending on which host the
+# browser happens to be on.
+additional_redirect_urls = [
+  "http://127.0.0.1:3000/atualizar-senha",
+  "http://localhost:3000/atualizar-senha",
+]
 # How long tokens are valid for, in seconds. Defaults to 3600 (1 hour), maximum 604,800 (1 week).
 jwt_expiry = 3600
 # JWT issuer URL. If not set, defaults to auth.external_url.

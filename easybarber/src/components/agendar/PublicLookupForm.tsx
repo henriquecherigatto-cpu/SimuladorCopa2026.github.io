@@ -6,7 +6,6 @@ import { CalendarSearch, Phone, Search } from "lucide-react";
 import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
 import { Alert } from "@/components/ui/Alert";
-import { AppointmentStatusBadge } from "@/components/ui/StatusBadge";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import {
   cancelPublicAppointmentByPhone,
@@ -73,6 +72,16 @@ export function PublicLookupForm({ slug }: { slug: string }) {
     setAppointments(result.data);
   };
 
+  // Appointment states aren't shown to the customer (there's no more
+  // owner-confirmation step for "agendado" vs "confirmado" to
+  // distinguish), so a cancelled/concluded appointment — with nothing
+  // left to show or do — is left off the list entirely rather than
+  // shown with no visual indication of why its "Cancelar" button is
+  // gone.
+  const visibleAppointments = appointments.filter(
+    (appt) => appt.status !== "cancelado" && appt.status !== "concluido",
+  );
+
   return (
     <div className="flex flex-col gap-5 rounded-2xl border border-black/5 bg-white p-5 shadow-sm sm:p-6">
       <form onSubmit={onSubmit} className="flex flex-col gap-4" noValidate>
@@ -94,17 +103,17 @@ export function PublicLookupForm({ slug }: { slug: string }) {
         </Button>
       </form>
 
-      {searched && !error && appointments.length === 0 && (
+      {searched && !error && visibleAppointments.length === 0 && (
         <Alert variant="info" title="Nenhum agendamento encontrado">
           Não encontramos agendamentos com esse telefone. Verifique o número ou faça um novo
           agendamento.
         </Alert>
       )}
 
-      {appointments.length > 0 && (
+      {visibleAppointments.length > 0 && (
         <div className="flex flex-col gap-3 border-t border-black/5 pt-4">
           {cancelError && <Alert variant="error">{cancelError}</Alert>}
-          {appointments.map((appt) => {
+          {visibleAppointments.map((appt) => {
             const start = new Date(appt.starts_at);
             const end = new Date(appt.ends_at);
             return (
@@ -116,12 +125,9 @@ export function PublicLookupForm({ slug }: { slug: string }) {
                   <CalendarSearch className="size-4" />
                 </span>
                 <div className="flex-1">
-                  <div className="flex items-center justify-between gap-2">
-                    <p className="text-sm font-semibold text-brand-graphite">
-                      {appt.service_name}
-                    </p>
-                    <AppointmentStatusBadge status={appt.status} />
-                  </div>
+                  <p className="text-sm font-semibold text-brand-graphite">
+                    {appt.service_name}
+                  </p>
                   <p className="text-sm text-brand-graphite/60">
                     com {appt.professional_name}
                   </p>

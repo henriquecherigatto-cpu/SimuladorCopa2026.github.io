@@ -7,9 +7,9 @@ import { Button } from "@/components/ui/Button";
 import { Alert } from "@/components/ui/Alert";
 import { createClient } from "@/lib/supabase/client";
 
-export function ForgotPasswordForm() {
+export function ForgotPasswordForm({ initialEmail }: { initialEmail?: string }) {
   const [sent, setSent] = React.useState(false);
-  const [email, setEmail] = React.useState("");
+  const [email, setEmail] = React.useState(initialEmail ?? "");
   const [loading, setLoading] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
 

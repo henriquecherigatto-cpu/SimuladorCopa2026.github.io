@@ -11,7 +11,18 @@ const PUBLIC_ROUTES = ["/", "/login", "/cadastro", "/recuperar-senha"];
 // /cancelar/<token> is the cancel-by-link page a booking confirmation
 // message points to; the owner should also be able to open either
 // while signed in (e.g. to test it) without being redirected away.
-const ALWAYS_ACCESSIBLE_PREFIXES = ["/agendar/", "/cancelar/"];
+// /atualizar-senha needs this same treatment for a different reason:
+// the password-recovery email's link lands here with a ?code= that
+// the BROWSER exchanges for a session client-side (detectSessionInUrl
+// in src/lib/supabase/client.ts) — this request arrives with no
+// session cookie yet, so treating it as an ordinary protected route
+// would redirect to /login and strip the code before that exchange
+// ever runs. And once the exchange DOES complete, the visitor is now
+// "authenticated" by this middleware's own check, so leaving it out
+// of PUBLIC_ROUTES matters too — that list bounces an authenticated
+// visitor straight to /dashboard, which here would mean away from the
+// password form before they ever get to submit it.
+const ALWAYS_ACCESSIBLE_PREFIXES = ["/agendar/", "/cancelar/", "/atualizar-senha"];
 
 /**
  * Refreshes the Supabase session cookie on every request (so it never

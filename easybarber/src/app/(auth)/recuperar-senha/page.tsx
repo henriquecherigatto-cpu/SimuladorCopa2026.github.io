@@ -6,7 +6,13 @@ import { ForgotPasswordForm } from "@/components/auth/ForgotPasswordForm";
 
 export const metadata: Metadata = { title: "Recuperar senha — Easy Barber" };
 
-export default function RecuperarSenhaPage() {
+export default async function RecuperarSenhaPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ email?: string }>;
+}) {
+  const { email } = await searchParams;
+
   return (
     <div className="flex flex-col gap-6">
       <div className="flex flex-col items-center gap-3 text-center lg:items-start lg:text-left">
@@ -21,7 +27,7 @@ export default function RecuperarSenhaPage() {
           Informe o e-mail da sua conta para receber as instruções de
           redefinição.
         </p>
-        <ForgotPasswordForm />
+        <ForgotPasswordForm initialEmail={email} />
       </div>
 
       <Link
