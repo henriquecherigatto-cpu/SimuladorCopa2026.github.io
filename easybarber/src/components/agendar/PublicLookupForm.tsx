@@ -7,7 +7,9 @@ import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
 import { Alert } from "@/components/ui/Alert";
 import { AppointmentStatusBadge } from "@/components/ui/StatusBadge";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import {
+  cancelPublicAppointmentByPhone,
   fetchPublicCustomerAppointments,
   type PublicCustomerAppointment,
 } from "@/lib/actions/public-booking";
@@ -18,6 +20,35 @@ export function PublicLookupForm({ slug }: { slug: string }) {
   const [searched, setSearched] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   const [appointments, setAppointments] = React.useState<PublicCustomerAppointment[]>([]);
+  const [cancelTarget, setCancelTarget] = React.useState<PublicCustomerAppointment | null>(null);
+  const [cancelling, setCancelling] = React.useState(false);
+  const [cancelError, setCancelError] = React.useState<string | null>(null);
+
+  const handleCancel = async () => {
+    if (!cancelTarget) return;
+    setCancelling(true);
+    setCancelError(null);
+
+    const result = await cancelPublicAppointmentByPhone({
+      slug,
+      phone,
+      appointmentId: cancelTarget.id,
+    });
+
+    setCancelling(false);
+
+    if (!result.ok || !result.data.found) {
+      setCancelError(result.ok ? "Não foi possível cancelar este agendamento." : result.error);
+      return;
+    }
+
+    setAppointments((prev) =>
+      prev.map((appt) =>
+        appt.id === cancelTarget.id ? { ...appt, status: "cancelado", can_cancel: false } : appt,
+      ),
+    );
+    setCancelTarget(null);
+  };
 
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -72,6 +103,7 @@ export function PublicLookupForm({ slug }: { slug: string }) {
 
       {appointments.length > 0 && (
         <div className="flex flex-col gap-3 border-t border-black/5 pt-4">
+          {cancelError && <Alert variant="error">{cancelError}</Alert>}
           {appointments.map((appt) => {
             const start = new Date(appt.starts_at);
             const end = new Date(appt.ends_at);
@@ -97,12 +129,39 @@ export function PublicLookupForm({ slug }: { slug: string }) {
                     {format(start, "dd/MM/yyyy")} às {format(start, "HH:mm")} –{" "}
                     {format(end, "HH:mm")}
                   </p>
+                  {appt.can_cancel && (
+                    <Button
+                      variant="danger"
+                      size="sm"
+                      className="mt-2"
+                      onClick={() => {
+                        setCancelError(null);
+                        setCancelTarget(appt);
+                      }}
+                    >
+                      Cancelar
+                    </Button>
+                  )}
                 </div>
               </div>
             );
           })}
         </div>
       )}
+
+      <ConfirmDialog
+        open={cancelTarget !== null}
+        title="Cancelar agendamento"
+        description={
+          cancelTarget
+            ? `Tem certeza que deseja cancelar o agendamento de ${cancelTarget.service_name} em ${format(new Date(cancelTarget.starts_at), "dd/MM/yyyy")} às ${format(new Date(cancelTarget.starts_at), "HH:mm")}?`
+            : ""
+        }
+        confirmLabel="Cancelar agendamento"
+        busy={cancelling}
+        onConfirm={handleCancel}
+        onClose={() => setCancelTarget(null)}
+      />
     </div>
   );
 }

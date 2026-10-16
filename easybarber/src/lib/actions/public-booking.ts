@@ -157,6 +157,7 @@ export interface PublicCustomerAppointment {
   status: "agendado" | "confirmado" | "concluido" | "cancelado";
   service_name: string;
   professional_name: string;
+  can_cancel: boolean;
 }
 
 /**
@@ -182,6 +183,35 @@ export async function fetchPublicCustomerAppointments(input: {
     if (error) throw error;
 
     return { ok: true, data: data ?? [] };
+  } catch (error) {
+    return { ok: false, error: friendlyPublicError(error) };
+  }
+}
+
+/**
+ * Cancel path for the phone-lookup screen — separate from
+ * cancelPublicAppointment() (the WhatsApp-link/token flow). The
+ * backing function re-validates slug + phone + appointment id all
+ * match the same row before cancelling; never called as a side effect
+ * of loading the page, only from an explicit "Confirmar cancelamento"
+ * click.
+ */
+export async function cancelPublicAppointmentByPhone(input: {
+  slug: string;
+  phone: string;
+  appointmentId: string;
+}): Promise<ActionResult<{ found: boolean; status?: string }>> {
+  try {
+    const supabase = await createClient();
+    const { data, error } = await supabase.rpc("cancel_public_appointment_by_phone", {
+      p_slug: input.slug,
+      p_phone: input.phone,
+      p_appointment_id: input.appointmentId,
+    });
+    if (error) throw error;
+
+    const r = (data ?? {}) as Partial<{ found: boolean; status: string }>;
+    return { ok: true, data: { found: r.found ?? false, status: r.status } };
   } catch (error) {
     return { ok: false, error: friendlyPublicError(error) };
   }

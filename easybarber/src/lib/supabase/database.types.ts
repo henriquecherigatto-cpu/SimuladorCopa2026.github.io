@@ -907,6 +907,10 @@ export type Database = {
         Returns: Json;
       };
       cancel_appointment_by_token: { Args: { p_token: string }; Returns: Json };
+      cancel_public_appointment_by_phone: {
+        Args: { p_appointment_id: string; p_phone: string; p_slug: string };
+        Returns: Json;
+      };
       create_company_with_owner: {
         Args: { p_address?: string; p_cnpj?: string; p_name: string; p_phone: string };
         Returns: string;
@@ -949,6 +953,7 @@ export type Database = {
       get_public_customer_appointments: {
         Args: { p_phone: string; p_slug: string };
         Returns: {
+          can_cancel: boolean;
           ends_at: string;
           id: string;
           professional_name: string;
