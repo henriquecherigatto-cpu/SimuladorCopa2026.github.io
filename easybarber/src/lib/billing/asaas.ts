@@ -1,5 +1,6 @@
 import "server-only";
 import { timingSafeEqual } from "node:crypto";
+import { addMonths, format } from "date-fns";
 import type {
   CheckoutSession,
   CreateCheckoutSessionInput,
@@ -178,7 +179,18 @@ export class AsaasProvider implements PaymentProvider {
       amountCents: payment ? Math.round(payment.value * 100) : null,
       status: payment?.status ?? payload.event,
       rawPayload: payload,
-      newPeriodEnd: payment?.dueDate,
+      // payment.dueDate is the due date of the invoice that was JUST
+      // paid (e.g. "today", for the first charge — see nextDueDate in
+      // createCheckoutSession above) — the START of the period it
+      // covers, not the next one. apply_billing_event() writes
+      // newPeriodEnd straight into current_period_end ("paid through
+      // this date"), so it must be shifted forward by one billing
+      // cycle here. Every plan in this app is monthly (plans.period
+      // has a check (period = 'mensal') constraint), matching the
+      // cycle: "MONTHLY" set when the Asaas subscription was created.
+      newPeriodEnd: payment?.dueDate
+        ? format(addMonths(new Date(`${payment.dueDate}T00:00:00`), 1), "yyyy-MM-dd")
+        : undefined,
     };
   }
 }
