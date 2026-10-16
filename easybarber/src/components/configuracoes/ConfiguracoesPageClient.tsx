@@ -421,7 +421,6 @@ function PreferencesModal({
   onSave: () => void;
 }) {
   const [interval, setIntervalMin] = React.useState("15");
-  const [autoConfirm, setAutoConfirm] = React.useState(false);
   const [showCancelled, setShowCancelled] = React.useState(true);
 
   return (
@@ -441,12 +440,6 @@ function PreferencesModal({
             <option value="60">60 minutos</option>
           </select>
         </div>
-        <ToggleRow
-          label="Confirmar agendamentos automaticamente"
-          description="Novos agendamentos entram como confirmados"
-          checked={autoConfirm}
-          onChange={setAutoConfirm}
-        />
         <ToggleRow
           label="Exibir agendamentos cancelados na agenda"
           checked={showCancelled}

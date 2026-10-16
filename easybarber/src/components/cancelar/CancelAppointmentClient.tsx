@@ -8,7 +8,6 @@ import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Alert } from "@/components/ui/Alert";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
-import { AppointmentStatusBadge } from "@/components/ui/StatusBadge";
 import {
   cancelPublicAppointment,
   type PublicAppointmentSummary,
@@ -91,10 +90,7 @@ export function CancelAppointmentClient({
       </div>
 
       <div className="flex flex-col gap-2 rounded-xl bg-brand-surface p-4">
-        <div className="flex items-center justify-between gap-2">
-          <p className="text-sm font-semibold text-brand-graphite">{summary.serviceName}</p>
-          {summary.status && <AppointmentStatusBadge status={summary.status} />}
-        </div>
+        <p className="text-sm font-semibold text-brand-graphite">{summary.serviceName}</p>
         <p className="text-sm text-brand-graphite/60">com {summary.professionalName}</p>
         {startsAt && (
           <p className="text-sm text-brand-graphite/60">

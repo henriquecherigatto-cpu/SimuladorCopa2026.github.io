@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -39,9 +40,11 @@ export function SignupForm() {
   const [success, setSuccess] = React.useState(false);
   const [pendingConfirmation, setPendingConfirmation] = React.useState(false);
   const [serverError, setServerError] = React.useState<string | null>(null);
+  const [duplicateEmail, setDuplicateEmail] = React.useState<string | null>(null);
 
   const onSubmit = async (values: SignupValues) => {
     setServerError(null);
+    setDuplicateEmail(null);
     const supabase = createClient();
 
     const { data, error } = await supabase.auth.signUp({
@@ -51,7 +54,30 @@ export function SignupForm() {
     });
 
     if (error) {
+      // Supabase's own wording for this case ("User already registered")
+      // only comes back when email confirmations are OFF for the
+      // project. See the identities check below for the ON case.
+      if (error.code === "user_already_exists" || error.message.includes("already registered")) {
+        setDuplicateEmail(values.email);
+        return;
+      }
       setServerError(error.message);
+      return;
+    }
+
+    // With email confirmations ON, signUp() for an email that already
+    // belongs to a CONFIRMED account doesn't return an error at all —
+    // Supabase deliberately returns an obfuscated "success" (no
+    // session, a user object with an empty identities array) so a
+    // stranger can't use this form to probe which emails are
+    // registered. Checking identities.length === 0 is Supabase's own
+    // documented way to tell "I'm signing up with my own email, and it
+    // turns out it's already mine" apart from a genuinely new signup —
+    // it reveals nothing to anyone who doesn't already know this email
+    // is theirs, since it only ever surfaces to whoever just typed it
+    // into this exact form.
+    if (data.user && data.user.identities && data.user.identities.length === 0) {
+      setDuplicateEmail(values.email);
       return;
     }
 
@@ -87,6 +113,22 @@ export function SignupForm() {
       router.refresh();
     }, 1200);
   };
+
+  if (duplicateEmail) {
+    return (
+      <Alert variant="info" title="Esse e-mail já tem uma conta">
+        Já existe uma barbearia cadastrada com {duplicateEmail}. Se o acesso é
+        seu,{" "}
+        <Link
+          href={`/recuperar-senha?email=${encodeURIComponent(duplicateEmail)}`}
+          className="font-semibold underline"
+        >
+          recupere sua senha
+        </Link>{" "}
+        em vez de criar uma conta nova.
+      </Alert>
+    );
+  }
 
   if (pendingConfirmation) {
     return (
