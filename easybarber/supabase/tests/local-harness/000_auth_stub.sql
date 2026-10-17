@@ -47,3 +47,16 @@ $$;
 
 grant usage on schema auth to anon, authenticated, service_role;
 grant select on auth.users to anon, authenticated, service_role;
+
+-- Supabase's own platform bootstrap creates this empty publication on
+-- every project; migrations that enable Realtime on a table (ALTER
+-- PUBLICATION supabase_realtime ADD TABLE ...) assume it already
+-- exists, same as they assume auth/anon/authenticated/service_role
+-- above.
+do $$
+begin
+  if not exists (select 1 from pg_publication where pubname = 'supabase_realtime') then
+    create publication supabase_realtime;
+  end if;
+end;
+$$;

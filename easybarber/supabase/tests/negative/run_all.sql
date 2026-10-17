@@ -36,5 +36,7 @@
 \ir 130_subscription_enforcement.sql
 \echo '=== 140_whatsapp_plan_gating.sql ==='
 \ir 140_whatsapp_plan_gating.sql
+\echo '=== 150_signup_payment_coupons.sql ==='
+\ir 150_signup_payment_coupons.sql
 
 \echo '=== ALL NEGATIVE TESTS PASSED ==='

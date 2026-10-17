@@ -360,6 +360,74 @@ export type Database = {
           },
         ];
       };
+      coupon_redemptions: {
+        Row: {
+          company_id: string;
+          coupon_id: string;
+          id: string;
+          redeemed_at: string;
+        };
+        ComputedFields: never;
+        Insert: {
+          company_id: string;
+          coupon_id: string;
+          id?: string;
+          redeemed_at?: string;
+        };
+        Update: {
+          company_id?: string;
+          coupon_id?: string;
+          id?: string;
+          redeemed_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "coupon_redemptions_company_id_fkey";
+            columns: ["company_id"];
+            isOneToOne: false;
+            referencedRelation: "companies";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "coupon_redemptions_coupon_id_fkey";
+            columns: ["coupon_id"];
+            isOneToOne: false;
+            referencedRelation: "coupons";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      coupons: {
+        Row: {
+          active: boolean;
+          code: string;
+          created_at: string;
+          discount_percent: number;
+          expires_at: string | null;
+          id: string;
+          max_redemptions: number | null;
+        };
+        ComputedFields: never;
+        Insert: {
+          active?: boolean;
+          code: string;
+          created_at?: string;
+          discount_percent: number;
+          expires_at?: string | null;
+          id?: string;
+          max_redemptions?: number | null;
+        };
+        Update: {
+          active?: boolean;
+          code?: string;
+          created_at?: string;
+          discount_percent?: number;
+          expires_at?: string | null;
+          id?: string;
+          max_redemptions?: number | null;
+        };
+        Relationships: [];
+      };
       customers: {
         Row: {
           company_id: string;
@@ -981,7 +1049,9 @@ export type Database = {
         };
         Returns: undefined;
       };
+      preview_coupon_discount: { Args: { p_code: string }; Returns: number };
       professional_id_for_current_user: { Args: { p_company_id: string }; Returns: string };
+      redeem_coupon: { Args: { p_code: string; p_company_id: string }; Returns: number };
       sweep_subscription_lifecycle: {
         Args: Record<PropertyKey, never>;
         Returns: {

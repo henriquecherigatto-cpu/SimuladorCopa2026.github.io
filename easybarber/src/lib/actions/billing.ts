@@ -22,6 +22,8 @@ function assertOwner(role: string) {
  */
 export async function createCheckoutSession(
   planId: string,
+  couponCode?: string,
+  returnPath: string = "/plano",
 ): Promise<ActionResult<{ url: string }>> {
   return runAction(async () => {
     const { supabase, companyId, role, userId } = await requireMembership();
@@ -62,6 +64,19 @@ export async function createCheckoutSession(
     const email = profile?.email ?? "";
     if (!email) throw new Error("Não foi possível identificar o e-mail da conta.");
 
+    // Redeemed only once every other validation above has already
+    // passed — a checkout that fails for an unrelated reason (missing
+    // CNPJ, unknown plan) must never consume the coupon.
+    let firstPaymentDiscountPercent: number | undefined;
+    if (couponCode?.trim()) {
+      const { data: discount, error: couponError } = await supabase.rpc("redeem_coupon", {
+        p_company_id: companyId,
+        p_code: couponCode.trim(),
+      });
+      if (couponError) throw couponError;
+      firstPaymentDiscountPercent = discount ?? undefined;
+    }
+
     const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
 
     const session = await provider.createCheckoutSession({
@@ -73,7 +88,8 @@ export async function createCheckoutSession(
       customerEmail: email,
       customerDocument: company.cnpj,
       existingExternalCustomerId: subscription?.external_customer_id ?? null,
-      returnUrl: `${appUrl}/plano?checkout=pendente`,
+      returnUrl: `${appUrl}${returnPath}?checkout=pendente`,
+      firstPaymentDiscountPercent,
     });
 
     // Link this company to the provider's customer id so the webhook
@@ -122,12 +138,27 @@ export async function getOpenInvoiceLink(): Promise<
 
     const { data: subscription } = await supabase
       .from("subscriptions")
-      .select("external_subscription_id")
+      .select("external_customer_id")
       .eq("company_id", companyId)
       .single();
 
-    if (!subscription?.external_subscription_id) return null;
+    if (!subscription?.external_customer_id) return null;
 
-    return provider.getOpenInvoice(subscription.external_subscription_id);
+    return provider.getOpenInvoice(subscription.external_customer_id);
+  });
+}
+
+/**
+ * Read-only preview for the checkout UI: shows "X% off" the instant a
+ * valid code is typed, before the owner commits to anything. Never
+ * records a redemption — see createCheckoutSession's couponCode
+ * handling for the call that actually consumes one.
+ */
+export async function previewCoupon(code: string): Promise<ActionResult<{ discountPercent: number } | null>> {
+  return runAction(async () => {
+    const { supabase } = await requireMembership();
+    const { data, error } = await supabase.rpc("preview_coupon_discount", { p_code: code });
+    if (error) throw error;
+    return data == null ? null : { discountPercent: data };
   });
 }
