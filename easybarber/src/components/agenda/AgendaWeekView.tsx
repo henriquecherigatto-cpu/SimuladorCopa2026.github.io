@@ -13,6 +13,7 @@ import {
   listAppointmentsInRange,
   type AppointmentListItem,
 } from "@/lib/actions/appointments";
+import { useAppointmentsRealtime } from "@/lib/hooks/useAppointmentsRealtime";
 import { cn, todayISOInAppTimezone, todayInAppTimezone } from "@/lib/utils";
 import type { ProfessionalChip } from "@/components/agenda/AgendaDayView";
 
@@ -101,6 +102,8 @@ export function AgendaWeekView({
     // eslint-disable-next-line react-hooks/set-state-in-effect
     loadAppointments();
   }, [loadAppointments]);
+
+  useAppointmentsRealtime(loadAppointments);
 
   const getDayAppointments = (date: Date) => {
     const iso = toISODate(date);

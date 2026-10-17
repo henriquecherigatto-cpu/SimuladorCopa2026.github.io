@@ -13,6 +13,7 @@ import {
   listAppointmentsInRange,
   type AppointmentListItem,
 } from "@/lib/actions/appointments";
+import { useAppointmentsRealtime } from "@/lib/hooks/useAppointmentsRealtime";
 import { cn, hhmmToMinutes, minutesToHHMM, todayISOInAppTimezone } from "@/lib/utils";
 
 const SLOT_MINUTES = 30;
@@ -160,6 +161,8 @@ export function AgendaDayView({
     // eslint-disable-next-line react-hooks/set-state-in-effect
     loadAppointments();
   }, [loadAppointments]);
+
+  useAppointmentsRealtime(loadAppointments);
 
   const dateObj = React.useMemo(
     () => new Date(`${selectedDate}T00:00:00`),
