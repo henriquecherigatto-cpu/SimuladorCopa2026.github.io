@@ -29,6 +29,8 @@ import { Button } from "@/components/ui/Button";
 import { Alert } from "@/components/ui/Alert";
 import { Switch } from "@/components/ui/Switch";
 import { updateCompanySettings, updateBusinessHours } from "@/lib/actions/companies";
+import type { WhatsAppConnectionStatus } from "@/lib/actions/whatsapp-connection";
+import { WhatsAppConnectionModal } from "@/components/configuracoes/WhatsAppConnectionModal";
 import { WEEKDAY_LABELS } from "@/lib/utils";
 import type { BusinessHours } from "@/types";
 
@@ -71,6 +73,7 @@ type SectionKey =
   | "hours"
   | "preferences"
   | "notifications"
+  | "whatsapp"
   | "security"
   | "help";
 
@@ -79,22 +82,32 @@ interface WhatsAppConfirmationEligibility {
   subscriptionActive: boolean;
 }
 
+const WHATSAPP_CONNECTION_SUBTITLE: Record<WhatsAppConnectionStatus["status"], string> = {
+  disconnected: "Nenhuma conta conectada",
+  connecting: "Conectando…",
+  connected: "Conectado",
+  error: "Erro na conexão — toque para ver detalhes",
+};
+
 export function ConfiguracoesPageClient({
   company: initialCompany,
   businessHours: initialBusinessHours,
   canManage,
   whatsappConfirmation,
+  whatsappConnection: initialWhatsappConnection,
 }: {
   company: CompanyRow;
   businessHours: BusinessHoursRow[];
   canManage: boolean;
   whatsappConfirmation: WhatsAppConfirmationEligibility;
+  whatsappConnection: WhatsAppConnectionStatus;
 }) {
   const router = useRouter();
   const [company, setCompany] = React.useState(initialCompany);
   const [hours, setHours] = React.useState<BusinessHours[]>(() =>
     toDisplayHours(initialBusinessHours),
   );
+  const [whatsappConnection, setWhatsappConnection] = React.useState(initialWhatsappConnection);
   const [open, setOpen] = React.useState<SectionKey | null>(null);
   const [savedMessage, setSavedMessage] = React.useState<string | null>(null);
 
@@ -144,6 +157,14 @@ export function ConfiguracoesPageClient({
           subtitle="Lembretes de agendamento"
           onClick={() => setOpen("notifications")}
         />
+        {canManage && (
+          <SettingsRow
+            icon={MessageCircle}
+            title="Integração com WhatsApp"
+            subtitle={WHATSAPP_CONNECTION_SUBTITLE[whatsappConnection.status]}
+            onClick={() => setOpen("whatsapp")}
+          />
+        )}
         <SettingsRow
           icon={Palette}
           title="Personalização"
@@ -194,6 +215,12 @@ export function ConfiguracoesPageClient({
         open={open === "notifications"}
         onClose={() => setOpen(null)}
         onSave={() => flashSaved("Preferências de notificação atualizadas.")}
+      />
+      <WhatsAppConnectionModal
+        open={open === "whatsapp"}
+        onClose={() => setOpen(null)}
+        initialStatus={whatsappConnection}
+        onStatusChange={setWhatsappConnection}
       />
       <SecurityModal
         open={open === "security"}

@@ -9,16 +9,17 @@ import { todayInAppTimezone } from "@/lib/utils";
  * subscription ativa -> tolerancia (the only caller is
  * src/app/api/billing/sweep/route.ts, right after that RPC call) —
  * not every day of the grace period, just the one notification that
- * the clock has started. Needs its own approved Content Template
- * (TWILIO_CONTENT_SID_GRACE_REMINDER, distinct from the booking
- * confirmation's) — see docs/whatsapp-integration.md.
+ * the clock has started. Needs its own approved Meta message template
+ * named "subscription_grace_reminder" (distinct from the booking
+ * confirmation's "booking_confirmation") — see
+ * docs/whatsapp-integration.md.
  *
  * Goes to the BARBERSHOP's own number (companies.whatsapp_number —
  * the same field the public booking page's "Falar no WhatsApp" button
  * uses), not to the platform's support line and not to any customer.
  */
 export async function notifyCompanyEnteringGracePeriod(companyId: string): Promise<void> {
-  const provider = getWhatsAppProvider();
+  const provider = await getWhatsAppProvider(companyId);
   if (!provider.isConfigured("subscription_grace_reminder")) return;
 
   const supabase = createServiceRoleClient();
@@ -50,6 +51,17 @@ export async function notifyCompanyEnteringGracePeriod(companyId: string): Promi
 
   if (!result.ok) {
     console.error(`WhatsApp grace-period reminder send failed (${provider.name}):`, result.error);
+    // Same understandable-status reasoning as sendBookingConfirmation()
+    // — surfaces the failure in Configurações, isolated in its own
+    // try/catch so it can never skip the log_whatsapp_message() call below.
+    try {
+      await supabase.rpc("set_whatsapp_connection_error", {
+        p_company_id: companyId,
+        p_error: result.error ?? "Falha ao enviar lembrete de carência por WhatsApp.",
+      });
+    } catch (error) {
+      console.error("Failed to record the WhatsApp connection error:", error);
+    }
   }
 
   // Same best-effort admin-dashboard bookkeeping as
@@ -65,6 +77,7 @@ export async function notifyCompanyEnteringGracePeriod(companyId: string): Promi
       p_company_id: companyId,
       p_provider_message_id: result.ok ? result.providerMessageId : undefined,
       p_error: result.ok ? undefined : result.error,
+      p_template: "subscription_grace_reminder",
     });
   } catch (error) {
     console.error(

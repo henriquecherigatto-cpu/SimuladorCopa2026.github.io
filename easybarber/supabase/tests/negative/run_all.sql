@@ -42,5 +42,7 @@
 \ir 160_admin_plan_change.sql
 \echo '=== 170_whatsapp_confirmation_gate.sql ==='
 \ir 170_whatsapp_confirmation_gate.sql
+\echo '=== 180_whatsapp_connections_isolation.sql ==='
+\ir 180_whatsapp_connections_isolation.sql
 
 \echo '=== ALL NEGATIVE TESTS PASSED ==='

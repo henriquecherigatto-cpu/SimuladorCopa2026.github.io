@@ -438,6 +438,8 @@ export type Database = {
           notes: string | null;
           phone: string;
           updated_at: string;
+          whatsapp_opt_out: boolean;
+          whatsapp_opted_out_at: string | null;
         };
         ComputedFields: never;
         Insert: {
@@ -449,6 +451,8 @@ export type Database = {
           notes?: string | null;
           phone: string;
           updated_at?: string;
+          whatsapp_opt_out?: boolean;
+          whatsapp_opted_out_at?: string | null;
         };
         Update: {
           company_id?: string;
@@ -459,6 +463,8 @@ export type Database = {
           notes?: string | null;
           phone?: string;
           updated_at?: string;
+          whatsapp_opt_out?: boolean;
+          whatsapp_opted_out_at?: string | null;
         };
         Relationships: [
           {
@@ -857,6 +863,57 @@ export type Database = {
           },
         ];
       };
+      whatsapp_connections: {
+        Row: {
+          access_token_encrypted: string | null;
+          company_id: string;
+          connected_at: string | null;
+          created_at: string;
+          display_phone_number: string | null;
+          last_error: string | null;
+          phone_number_id: string | null;
+          status: Database["public"]["Enums"]["whatsapp_connection_status"];
+          token_expires_at: string | null;
+          updated_at: string;
+          waba_id: string | null;
+        };
+        ComputedFields: never;
+        Insert: {
+          access_token_encrypted?: string | null;
+          company_id: string;
+          connected_at?: string | null;
+          created_at?: string;
+          display_phone_number?: string | null;
+          last_error?: string | null;
+          phone_number_id?: string | null;
+          status?: Database["public"]["Enums"]["whatsapp_connection_status"];
+          token_expires_at?: string | null;
+          updated_at?: string;
+          waba_id?: string | null;
+        };
+        Update: {
+          access_token_encrypted?: string | null;
+          company_id?: string;
+          connected_at?: string | null;
+          created_at?: string;
+          display_phone_number?: string | null;
+          last_error?: string | null;
+          phone_number_id?: string | null;
+          status?: Database["public"]["Enums"]["whatsapp_connection_status"];
+          token_expires_at?: string | null;
+          updated_at?: string;
+          waba_id?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "whatsapp_connections_company_id_fkey";
+            columns: ["company_id"];
+            isOneToOne: true;
+            referencedRelation: "companies";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       whatsapp_messages: {
         Row: {
           appointment_id: string | null;
@@ -868,6 +925,7 @@ export type Database = {
           provider: string;
           provider_message_id: string | null;
           status: Database["public"]["Enums"]["whatsapp_message_status"];
+          template: string | null;
         };
         ComputedFields: never;
         Insert: {
@@ -880,6 +938,7 @@ export type Database = {
           provider: string;
           provider_message_id?: string | null;
           status: Database["public"]["Enums"]["whatsapp_message_status"];
+          template?: string | null;
         };
         Update: {
           appointment_id?: string | null;
@@ -891,6 +950,7 @@ export type Database = {
           provider?: string;
           provider_message_id?: string | null;
           status?: Database["public"]["Enums"]["whatsapp_message_status"];
+          template?: string | null;
         };
         Relationships: [
           {
@@ -984,6 +1044,7 @@ export type Database = {
         Args: { p_appointment_id: string; p_phone: string; p_slug: string };
         Returns: Json;
       };
+      clear_whatsapp_connection: { Args: { p_company_id: string }; Returns: undefined };
       create_company_with_owner: {
         Args: { p_address?: string; p_cnpj?: string; p_name: string; p_phone: string };
         Returns: string;
@@ -1035,6 +1096,16 @@ export type Database = {
           status: Database["public"]["Enums"]["appointment_status"];
         }[];
       };
+      get_whatsapp_connection_status: {
+        Args: { p_company_id: string };
+        Returns: {
+          connected_at: string | null;
+          display_phone_number: string | null;
+          last_error: string | null;
+          status: Database["public"]["Enums"]["whatsapp_connection_status"];
+          token_expires_at: string | null;
+        }[];
+      };
       has_company_role: {
         Args: {
           p_company_id: string;
@@ -1056,7 +1127,26 @@ export type Database = {
       };
       preview_coupon_discount: { Args: { p_code: string }; Returns: number };
       professional_id_for_current_user: { Args: { p_company_id: string }; Returns: string };
+      mark_customer_whatsapp_opt_out: {
+        Args: { p_from_phone_digits: string; p_phone_number_id: string };
+        Returns: undefined;
+      };
       redeem_coupon: { Args: { p_code: string; p_company_id: string }; Returns: number };
+      set_whatsapp_connection: {
+        Args: {
+          p_access_token_encrypted: string;
+          p_company_id: string;
+          p_display_phone_number: string;
+          p_phone_number_id: string;
+          p_token_expires_at: string | null;
+          p_waba_id: string;
+        };
+        Returns: undefined;
+      };
+      set_whatsapp_connection_error: {
+        Args: { p_company_id: string; p_error: string };
+        Returns: undefined;
+      };
       sweep_subscription_lifecycle: {
         Args: Record<PropertyKey, never>;
         Returns: {
@@ -1064,6 +1154,14 @@ export type Database = {
           new_status: Database["public"]["Enums"]["subscription_status"];
           old_status: Database["public"]["Enums"]["subscription_status"];
         }[];
+      };
+      update_whatsapp_message_status: {
+        Args: {
+          p_error?: string;
+          p_provider_message_id: string;
+          p_status: Database["public"]["Enums"]["whatsapp_message_status"];
+        };
+        Returns: undefined;
       };
       user_company_ids: { Args: Record<PropertyKey, never>; Returns: string[] };
       whatsapp_confirmation_allowed: {
@@ -1085,7 +1183,8 @@ export type Database = {
       appointment_status: "agendado" | "confirmado" | "concluido" | "cancelado";
       company_member_role: "owner" | "professional";
       subscription_status: "ativa" | "pendente" | "tolerancia" | "suspensa" | "cancelada";
-      whatsapp_message_status: "sent" | "failed";
+      whatsapp_connection_status: "disconnected" | "connecting" | "connected" | "error";
+      whatsapp_message_status: "sent" | "failed" | "delivered" | "read";
     };
     CompositeTypes: {
       [_ in never]: never;
@@ -1207,7 +1306,8 @@ export const Constants = {
       appointment_status: ["agendado", "confirmado", "concluido", "cancelado"],
       company_member_role: ["owner", "professional"],
       subscription_status: ["ativa", "pendente", "tolerancia", "suspensa", "cancelada"],
-      whatsapp_message_status: ["sent", "failed"],
+      whatsapp_connection_status: ["disconnected", "connecting", "connected", "error"],
+      whatsapp_message_status: ["sent", "failed", "delivered", "read"],
     },
   },
 } as const;
