@@ -74,14 +74,21 @@ type SectionKey =
   | "security"
   | "help";
 
+interface WhatsAppConfirmationEligibility {
+  planIncludesFeature: boolean;
+  subscriptionActive: boolean;
+}
+
 export function ConfiguracoesPageClient({
   company: initialCompany,
   businessHours: initialBusinessHours,
   canManage,
+  whatsappConfirmation,
 }: {
   company: CompanyRow;
   businessHours: BusinessHoursRow[];
   canManage: boolean;
+  whatsappConfirmation: WhatsAppConfirmationEligibility;
 }) {
   const router = useRouter();
   const [company, setCompany] = React.useState(initialCompany);
@@ -161,6 +168,7 @@ export function ConfiguracoesPageClient({
         open={open === "company"}
         company={company}
         canManage={canManage}
+        whatsappConfirmation={whatsappConfirmation}
         onClose={() => setOpen(null)}
         onSave={(data) => {
           setCompany((c) => ({ ...c, ...data }));
@@ -253,31 +261,66 @@ function CompanyModal({
   open,
   company,
   canManage,
+  whatsappConfirmation,
   onClose,
   onSave,
 }: {
   open: boolean;
   company: CompanyRow;
   canManage: boolean;
+  whatsappConfirmation: WhatsAppConfirmationEligibility;
   onClose: () => void;
   onSave: (data: Partial<CompanyRow>) => void;
 }) {
   return (
     <Modal open={open} onClose={onClose} title="Dados da barbearia">
       {open && (
-        <CompanyFormFields company={company} canManage={canManage} onSave={onSave} />
+        <CompanyFormFields
+          company={company}
+          canManage={canManage}
+          whatsappConfirmation={whatsappConfirmation}
+          onSave={onSave}
+        />
       )}
     </Modal>
+  );
+}
+
+function WhatsAppConfirmationNote({
+  eligibility,
+}: {
+  eligibility: WhatsAppConfirmationEligibility;
+}) {
+  if (eligibility.planIncludesFeature && eligibility.subscriptionActive) {
+    return null;
+  }
+
+  const message = !eligibility.planIncludesFeature
+    ? "A confirmação automática do agendamento por WhatsApp é exclusiva do plano Profissional."
+    : "Sua assinatura precisa estar em dia para a confirmação automática por WhatsApp voltar a funcionar.";
+
+  return (
+    <div className="flex flex-col gap-2 rounded-xl bg-brand-surface p-3.5">
+      <p className="text-sm text-brand-graphite/70">{message}</p>
+      <Link
+        href="/plano"
+        className="text-sm font-medium text-brand-orange hover:underline"
+      >
+        {!eligibility.planIncludesFeature ? "Ver planos" : "Ver assinatura"} →
+      </Link>
+    </div>
   );
 }
 
 function CompanyFormFields({
   company,
   canManage,
+  whatsappConfirmation,
   onSave,
 }: {
   company: CompanyRow;
   canManage: boolean;
+  whatsappConfirmation: WhatsAppConfirmationEligibility;
   onSave: (data: Partial<CompanyRow>) => void;
 }) {
   const [name, setName] = React.useState(company.name);
@@ -340,9 +383,10 @@ function CompanyFormFields({
         value={whatsappNumber}
         onChange={(e) => setWhatsappNumber(e.target.value)}
         placeholder="(19) 99999-9999"
-        hint="Usado no botão de WhatsApp da página pública e nas confirmações enviadas aos clientes. Se deixar em branco, usamos o telefone acima."
+        hint="Usado no botão de WhatsApp da página pública. Se deixar em branco, usamos o telefone acima."
         disabled={!canManage}
       />
+      <WhatsAppConfirmationNote eligibility={whatsappConfirmation} />
       <Input
         label="Endereço"
         value={address}

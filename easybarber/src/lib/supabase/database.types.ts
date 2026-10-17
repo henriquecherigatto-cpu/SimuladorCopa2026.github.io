@@ -1066,6 +1066,10 @@ export type Database = {
         }[];
       };
       user_company_ids: { Args: Record<PropertyKey, never>; Returns: string[] };
+      whatsapp_confirmation_allowed: {
+        Args: { p_appointment_id: string };
+        Returns: boolean;
+      };
       write_audit_log: {
         Args: {
           p_action: string;

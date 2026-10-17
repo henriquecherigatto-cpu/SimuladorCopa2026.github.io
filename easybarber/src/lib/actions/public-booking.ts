@@ -290,26 +290,25 @@ async function sendBookingConfirmation(
   if (!booking.found || !booking.startsAt) return;
 
   // The automated confirmation is a Profissional-tier (R$49,90) perk,
-  // not included on Essencial — see
-  // 20260101000026_whatsapp_plan_gating_and_subscription_alerts.sql.
+  // available only while the subscription is actually ativa — not just
+  // on the right plan, so a pendente/tolerancia/suspensa/cancelada
+  // company never gets a message either, even if it's Profissional.
+  // See whatsapp_confirmation_allowed() in
+  // 20260101000034_whatsapp_confirmation_subscription_gate.sql, which
+  // derives company_id from the (server-trusted) appointment id itself
+  // rather than trusting a second, independently-spoofable parameter.
   // subscriptions/plans are owner-only under RLS (subscriptions_select),
-  // so this check needs the service-role client — the visitor booking
-  // has no session that could read it.
+  // so this needs the service-role client — the visitor's own booking
+  // session has no read access to them. Any failure here — a thrown
+  // error, or the RPC returning anything but exactly `true` — must
+  // deny the send, never allow it by default.
   const serviceRoleClient = createServiceRoleClient();
 
-  const { data: appointment } = await serviceRoleClient
-    .from("appointments")
-    .select("company_id")
-    .eq("id", booking.id)
-    .single();
-  if (!appointment) return;
-
-  const { data: subscription } = await serviceRoleClient
-    .from("subscriptions")
-    .select("plans ( whatsapp_confirmations_included )")
-    .eq("company_id", appointment.company_id)
-    .single();
-  if (!subscription?.plans?.whatsapp_confirmations_included) return;
+  const { data: eligible, error: eligibilityError } = await serviceRoleClient.rpc(
+    "whatsapp_confirmation_allowed",
+    { p_appointment_id: booking.id },
+  );
+  if (eligibilityError || eligible !== true) return;
 
   const cancelUrl = `${process.env.NEXT_PUBLIC_APP_URL}/cancelar/${booking.cancelToken}`;
 

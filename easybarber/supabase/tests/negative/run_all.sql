@@ -40,5 +40,7 @@
 \ir 150_signup_payment_coupons.sql
 \echo '=== 160_admin_plan_change.sql ==='
 \ir 160_admin_plan_change.sql
+\echo '=== 170_whatsapp_confirmation_gate.sql ==='
+\ir 170_whatsapp_confirmation_gate.sql
 
 \echo '=== ALL NEGATIVE TESTS PASSED ==='
