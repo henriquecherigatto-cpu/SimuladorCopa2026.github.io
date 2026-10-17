@@ -28,8 +28,8 @@ import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
 import { Alert } from "@/components/ui/Alert";
 import { Switch } from "@/components/ui/Switch";
-import { businessHours as initialBusinessHours } from "@/lib/mock-data";
-import { updateCompanySettings } from "@/lib/actions/companies";
+import { updateCompanySettings, updateBusinessHours } from "@/lib/actions/companies";
+import { WEEKDAY_LABELS } from "@/lib/utils";
 import type { BusinessHours } from "@/types";
 
 interface CompanyRow {
@@ -39,6 +39,31 @@ interface CompanyRow {
   whatsapp_number: string | null;
   address: string | null;
   cnpj: string | null;
+}
+
+interface BusinessHoursRow {
+  day_of_week: number;
+  is_open: boolean;
+  start_time: string;
+  end_time: string;
+}
+
+// Display (and the form) always lists Monday first, matching how a
+// Brazilian week reads — business_hours.day_of_week itself is
+// Sunday-indexed (0-6), same convention as WEEKDAY_LABELS.
+const DISPLAY_ORDER = [1, 2, 3, 4, 5, 6, 0];
+
+function toDisplayHours(rows: BusinessHoursRow[]): BusinessHours[] {
+  return DISPLAY_ORDER.map((dayOfWeek) => {
+    const row = rows.find((r) => r.day_of_week === dayOfWeek);
+    return {
+      day: WEEKDAY_LABELS[dayOfWeek],
+      open: row?.is_open ?? false,
+      // "08:00:00" (Postgres time) -> "08:00" (<input type="time">)
+      start: (row?.start_time ?? "08:00").slice(0, 5),
+      end: (row?.end_time ?? "18:00").slice(0, 5),
+    };
+  });
 }
 
 type SectionKey =
@@ -51,14 +76,18 @@ type SectionKey =
 
 export function ConfiguracoesPageClient({
   company: initialCompany,
+  businessHours: initialBusinessHours,
   canManage,
 }: {
   company: CompanyRow;
+  businessHours: BusinessHoursRow[];
   canManage: boolean;
 }) {
   const router = useRouter();
   const [company, setCompany] = React.useState(initialCompany);
-  const [hours, setHours] = React.useState<BusinessHours[]>(initialBusinessHours);
+  const [hours, setHours] = React.useState<BusinessHours[]>(() =>
+    toDisplayHours(initialBusinessHours),
+  );
   const [open, setOpen] = React.useState<SectionKey | null>(null);
   const [savedMessage, setSavedMessage] = React.useState<string | null>(null);
 
@@ -364,13 +393,28 @@ function BusinessHoursFormFields({
   onSave: (hours: BusinessHours[]) => void;
 }) {
   const [draft, setDraft] = React.useState(hours);
+  const [error, setError] = React.useState<string | null>(null);
+  const [submitting, setSubmitting] = React.useState(false);
 
   const update = (day: string, patch: Partial<BusinessHours>) => {
     setDraft((prev) => prev.map((h) => (h.day === day ? { ...h, ...patch } : h)));
   };
 
+  const onSubmit = async () => {
+    setError(null);
+    setSubmitting(true);
+    const result = await updateBusinessHours(draft);
+    setSubmitting(false);
+    if (!result.ok) {
+      setError(result.error);
+      return;
+    }
+    onSave(draft);
+  };
+
   return (
     <div className="flex flex-col gap-3">
+      {error && <Alert variant="error">{error}</Alert>}
       {draft.map((h) => (
         <div
           key={h.day}
@@ -404,7 +448,7 @@ function BusinessHoursFormFields({
           )}
         </div>
       ))}
-      <Button fullWidth onClick={() => onSave(draft)}>
+      <Button fullWidth loading={submitting} onClick={onSubmit}>
         Salvar horários
       </Button>
     </div>

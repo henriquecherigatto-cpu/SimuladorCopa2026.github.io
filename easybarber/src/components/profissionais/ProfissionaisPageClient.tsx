@@ -13,7 +13,7 @@ import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { Input } from "@/components/ui/Input";
 import { Alert } from "@/components/ui/Alert";
 import { EmptyState } from "@/components/ui/EmptyState";
-import { cn } from "@/lib/utils";
+import { cn, WEEKDAY_LABELS } from "@/lib/utils";
 import {
   addProfessionalBreak,
   createProfessional,
@@ -27,7 +27,6 @@ import {
 } from "@/lib/actions/professionals";
 
 const PALETTE = ["#FF6B1A", "#2563EB", "#16803C", "#9333EA", "#DC2626", "#0E7490"];
-const WEEKDAY_LABELS = ["Domingo", "Segunda-feira", "Terça-feira", "Quarta-feira", "Quinta-feira", "Sexta-feira", "Sábado"];
 
 export interface ProfessionalRow {
   id: string;

@@ -22,6 +22,25 @@ export function cn(...inputs: ClassValue[]) {
 export const APP_TIMEZONE = "America/Sao_Paulo";
 
 /**
+ * Portuguese weekday labels, indexed exactly like Postgres'
+ * business_hours.day_of_week / extract(dow from ...) and JS's
+ * Date#getDay() — 0 is Domingo (Sunday), 6 is Sábado (Saturday). The
+ * one canonical list so a day-of-week index always maps to the same
+ * label everywhere (Configurações' business-hours editor,
+ * Profissionais' weekly days-off picker) instead of two copies
+ * silently drifting apart.
+ */
+export const WEEKDAY_LABELS = [
+  "Domingo",
+  "Segunda-feira",
+  "Terça-feira",
+  "Quarta-feira",
+  "Quinta-feira",
+  "Sexta-feira",
+  "Sábado",
+];
+
+/**
  * "Today", as a YYYY-MM-DD string, in the business's own timezone —
  * never the runtime's system clock. A plain `new Date()` rendered as
  * a calendar date disagrees with itself between the server (this
