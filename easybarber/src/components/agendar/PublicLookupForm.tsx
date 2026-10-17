@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import { format } from "date-fns";
+import { toZonedTime } from "date-fns-tz";
 import { CalendarSearch, Phone, Search } from "lucide-react";
 import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
@@ -12,6 +13,7 @@ import {
   fetchPublicCustomerAppointments,
   type PublicCustomerAppointment,
 } from "@/lib/actions/public-booking";
+import { APP_TIMEZONE } from "@/lib/utils";
 
 export function PublicLookupForm({ slug }: { slug: string }) {
   const [phone, setPhone] = React.useState("");
@@ -114,8 +116,8 @@ export function PublicLookupForm({ slug }: { slug: string }) {
         <div className="flex flex-col gap-3 border-t border-black/5 pt-4">
           {cancelError && <Alert variant="error">{cancelError}</Alert>}
           {visibleAppointments.map((appt) => {
-            const start = new Date(appt.starts_at);
-            const end = new Date(appt.ends_at);
+            const start = toZonedTime(appt.starts_at, APP_TIMEZONE);
+            const end = toZonedTime(appt.ends_at, APP_TIMEZONE);
             return (
               <div
                 key={appt.id}
@@ -160,7 +162,7 @@ export function PublicLookupForm({ slug }: { slug: string }) {
         title="Cancelar agendamento"
         description={
           cancelTarget
-            ? `Tem certeza que deseja cancelar o agendamento de ${cancelTarget.service_name} em ${format(new Date(cancelTarget.starts_at), "dd/MM/yyyy")} às ${format(new Date(cancelTarget.starts_at), "HH:mm")}?`
+            ? `Tem certeza que deseja cancelar o agendamento de ${cancelTarget.service_name} em ${format(toZonedTime(cancelTarget.starts_at, APP_TIMEZONE), "dd/MM/yyyy")} às ${format(toZonedTime(cancelTarget.starts_at, APP_TIMEZONE), "HH:mm")}?`
             : ""
         }
         confirmLabel="Cancelar agendamento"

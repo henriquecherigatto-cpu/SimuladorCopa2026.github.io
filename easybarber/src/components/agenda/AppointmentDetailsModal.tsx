@@ -1,8 +1,8 @@
 "use client";
 
 import * as React from "react";
-import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { formatInTimeZone } from "date-fns-tz";
 import { Clock, Scissors, StickyNote, User } from "lucide-react";
 import { Modal } from "@/components/ui/Modal";
 import { Avatar } from "@/components/ui/Avatar";
@@ -11,7 +11,7 @@ import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { Button } from "@/components/ui/Button";
 import { Alert } from "@/components/ui/Alert";
 import { cancelAppointment, updateAppointmentStatus } from "@/lib/actions/appointments";
-import { buildWhatsAppLink, formatCurrencyBRL } from "@/lib/utils";
+import { APP_TIMEZONE, buildWhatsAppLink, formatCurrencyBRL } from "@/lib/utils";
 import type { AppointmentListItem } from "@/lib/actions/appointments";
 
 export function AppointmentDetailsModal({
@@ -69,7 +69,7 @@ function AppointmentDetailsBody({
     // message and a browser to open it in (this modal is also used,
     // unchanged, by any future non-browser caller).
     if (status === "cancelado" && customer?.phone && typeof window !== "undefined") {
-      const message = `Olá, ${customer.name}! Infelizmente precisamos cancelar seu agendamento de ${service?.name ?? "serviço"} em ${format(new Date(appointment.starts_at), "dd/MM/yyyy")} às ${format(new Date(appointment.starts_at), "HH:mm", { locale: ptBR })}. Pedimos desculpas pelo transtorno e ficamos à disposição para reagendar.`;
+      const message = `Olá, ${customer.name}! Infelizmente precisamos cancelar seu agendamento de ${service?.name ?? "serviço"} em ${formatInTimeZone(appointment.starts_at, APP_TIMEZONE, "dd/MM/yyyy")} às ${formatInTimeZone(appointment.starts_at, APP_TIMEZONE, "HH:mm", { locale: ptBR })}. Pedimos desculpas pelo transtorno e ficamos à disposição para reagendar.`;
       window.open(buildWhatsAppLink(customer.phone, message), "_blank");
     }
     onChanged();
@@ -101,9 +101,9 @@ function AppointmentDetailsBody({
           <Clock className="size-4 shrink-0 text-brand-graphite/40" />
           <dt className="sr-only">Horário</dt>
           <dd className="text-brand-graphite">
-            {format(new Date(appointment.starts_at), "dd/MM/yyyy")} ·{" "}
-            {format(new Date(appointment.starts_at), "HH:mm", { locale: ptBR })} –{" "}
-            {format(new Date(appointment.ends_at), "HH:mm", { locale: ptBR })}
+            {formatInTimeZone(appointment.starts_at, APP_TIMEZONE, "dd/MM/yyyy")} ·{" "}
+            {formatInTimeZone(appointment.starts_at, APP_TIMEZONE, "HH:mm", { locale: ptBR })} –{" "}
+            {formatInTimeZone(appointment.ends_at, APP_TIMEZONE, "HH:mm", { locale: ptBR })}
           </dd>
         </div>
         <div className="flex items-center gap-2.5">

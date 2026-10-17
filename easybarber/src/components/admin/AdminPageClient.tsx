@@ -3,6 +3,7 @@
 import * as React from "react";
 import { useRouter } from "next/navigation";
 import { format } from "date-fns";
+import { formatInTimeZone } from "date-fns-tz";
 import {
   Ban,
   Building2,
@@ -35,7 +36,7 @@ import {
   type AdminPlatformMetrics,
   type AdminRevenuePoint,
 } from "@/lib/actions/admin";
-import { cn, formatCurrencyBRL } from "@/lib/utils";
+import { APP_TIMEZONE, cn, formatCurrencyBRL } from "@/lib/utils";
 
 export function AdminPageClient({
   companies,
@@ -312,7 +313,7 @@ export function AdminPageClient({
                     {describeAuditAction(entry)}
                   </p>
                   <p className="text-xs text-brand-graphite/40">
-                    {format(new Date(entry.created_at), "dd/MM/yyyy HH:mm")}
+                    {formatInTimeZone(entry.created_at, APP_TIMEZONE, "dd/MM/yyyy HH:mm")}
                   </p>
                 </li>
               ))}

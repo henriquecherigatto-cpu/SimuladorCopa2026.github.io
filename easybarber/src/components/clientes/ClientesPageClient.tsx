@@ -2,8 +2,8 @@
 
 import * as React from "react";
 import { useRouter } from "next/navigation";
-import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { formatInTimeZone } from "date-fns-tz";
 import { Mail, Phone, Plus, Search, UserRound } from "lucide-react";
 import { PageHeader } from "@/components/PageHeader";
 import { Button } from "@/components/ui/Button";
@@ -21,6 +21,7 @@ import {
   type CustomerAppointmentHistoryItem,
   type CustomerInput,
 } from "@/lib/actions/customers";
+import { APP_TIMEZONE } from "@/lib/utils";
 
 export interface CustomerRow {
   id: string;
@@ -375,7 +376,7 @@ function CustomerDetailsModal({
                         {appt.service?.name} · {appt.professional?.name}
                       </p>
                       <p className="text-xs text-brand-graphite/50">
-                        {format(new Date(appt.starts_at), "dd/MM/yyyy 'às' HH:mm", {
+                        {formatInTimeZone(appt.starts_at, APP_TIMEZONE, "dd/MM/yyyy 'às' HH:mm", {
                           locale: ptBR,
                         })}
                       </p>

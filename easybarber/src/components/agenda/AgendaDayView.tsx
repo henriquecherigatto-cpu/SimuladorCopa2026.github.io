@@ -3,6 +3,7 @@
 import * as React from "react";
 import { addDays, endOfWeek, format, startOfWeek } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { toZonedTime } from "date-fns-tz";
 import { CalendarOff, CalendarPlus, ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Avatar } from "@/components/ui/Avatar";
@@ -16,6 +17,7 @@ import {
 } from "@/lib/actions/appointments";
 import { useAppointmentsRealtime } from "@/lib/hooks/useAppointmentsRealtime";
 import {
+  APP_TIMEZONE,
   cn,
   hhmmToMinutes,
   minutesToHHMM,
@@ -54,8 +56,8 @@ function layoutDayAppointments(
 ): PositionedAppointment[] {
   const withMinutes = items
     .map((appt) => {
-      const start = new Date(appt.starts_at);
-      const end = new Date(appt.ends_at);
+      const start = toZonedTime(appt.starts_at, APP_TIMEZONE);
+      const end = toZonedTime(appt.ends_at, APP_TIMEZONE);
       return {
         appt,
         startMin: start.getHours() * 60 + start.getMinutes(),
@@ -242,8 +244,8 @@ export function AgendaDayView({
   const businessOpenMin = hhmmToMinutes(hours.start_time.slice(0, 5));
   const businessCloseMin = hhmmToMinutes(hours.end_time.slice(0, 5));
   const appointmentMinutes = appointments.flatMap((a) => {
-    const start = new Date(a.starts_at);
-    const end = new Date(a.ends_at);
+    const start = toZonedTime(a.starts_at, APP_TIMEZONE);
+    const end = toZonedTime(a.ends_at, APP_TIMEZONE);
     return [start.getHours() * 60 + start.getMinutes(), end.getHours() * 60 + end.getMinutes()];
   });
   const openMin =
@@ -431,7 +433,7 @@ export function AgendaDayView({
                 />
               ))}
               {layoutDayAppointments(dayAppointments, openMin).map((appt) => {
-                const start = new Date(appt.starts_at);
+                const start = toZonedTime(appt.starts_at, APP_TIMEZONE);
                 const cancelled = appt.status === "cancelado";
                 const color = appt.professional?.color ?? "#FF6B1A";
                 const colWidth = `((100% - ${ROW_OUTER_MARGIN * 2}px - ${(appt.totalCols - 1) * COLUMN_GAP}px) / ${appt.totalCols})`;
