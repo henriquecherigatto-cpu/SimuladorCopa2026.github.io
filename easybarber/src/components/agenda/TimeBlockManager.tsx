@@ -3,6 +3,7 @@
 import * as React from "react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { toZonedTime } from "date-fns-tz";
 import { Lock, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Modal } from "@/components/ui/Modal";
@@ -10,7 +11,7 @@ import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
 import { Alert } from "@/components/ui/Alert";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
-import { cn, todayISOInAppTimezone } from "@/lib/utils";
+import { APP_TIMEZONE, cn, todayISOInAppTimezone } from "@/lib/utils";
 import {
   createTimeBlock,
   deleteTimeBlock,
@@ -127,8 +128,8 @@ export function TimeBlockManager({ professionals }: { professionals: Professiona
       : "Barbearia toda";
 
   const formatBlockRange = (block: TimeBlockRow) => {
-    const start = new Date(block.starts_at);
-    const end = new Date(block.ends_at);
+    const start = toZonedTime(block.starts_at, APP_TIMEZONE);
+    const end = toZonedTime(block.ends_at, APP_TIMEZONE);
     const sameDay = format(start, "yyyy-MM-dd") === format(end, "yyyy-MM-dd");
     const isFullDay = start.getHours() === 0 && start.getMinutes() === 0 && end.getHours() === 23;
     const dateLabel = format(start, "d 'de' MMMM", { locale: ptBR });

@@ -22,7 +22,7 @@ import { BookingLinkCard } from "@/components/dashboard/BookingLinkCard";
 import { formatCurrencyBRL, todayISOInAppTimezone, todayInAppTimezone, APP_TIMEZONE } from "@/lib/utils";
 import { requireMembership } from "@/lib/supabase/current-user";
 import { listAppointmentsInRange } from "@/lib/actions/appointments";
-import { fromZonedTime } from "date-fns-tz";
+import { formatInTimeZone, fromZonedTime } from "date-fns-tz";
 
 export const metadata: Metadata = { title: "Painel — Easy Barber" };
 
@@ -197,7 +197,7 @@ export default async function DashboardPage() {
               {appointments.map((appt) => (
                 <li key={appt.id} className="flex items-center gap-3 px-5 py-3.5">
                   <span className="w-14 shrink-0 text-sm font-semibold text-brand-graphite">
-                    {format(new Date(appt.starts_at), "HH:mm")}
+                    {formatInTimeZone(appt.starts_at, APP_TIMEZONE, "HH:mm")}
                   </span>
                   {appt.professional && (
                     <Avatar

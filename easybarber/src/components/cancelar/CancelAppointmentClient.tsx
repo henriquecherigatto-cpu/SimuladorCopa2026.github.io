@@ -3,6 +3,7 @@
 import * as React from "react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { toZonedTime } from "date-fns-tz";
 import { CalendarX2, CheckCircle2, XCircle } from "lucide-react";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
@@ -12,6 +13,7 @@ import {
   cancelPublicAppointment,
   type PublicAppointmentSummary,
 } from "@/lib/actions/public-booking";
+import { APP_TIMEZONE } from "@/lib/utils";
 
 export function CancelAppointmentClient({
   token,
@@ -53,7 +55,7 @@ export function CancelAppointmentClient({
     );
   }
 
-  const startsAt = summary.startsAt ? new Date(summary.startsAt) : null;
+  const startsAt = summary.startsAt ? toZonedTime(summary.startsAt, APP_TIMEZONE) : null;
 
   if (summary.status === "cancelado") {
     return (

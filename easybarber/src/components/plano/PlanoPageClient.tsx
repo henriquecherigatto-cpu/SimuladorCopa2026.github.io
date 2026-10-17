@@ -3,6 +3,7 @@
 import * as React from "react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { formatInTimeZone } from "date-fns-tz";
 import { AlertTriangle, Check, CreditCard, QrCode, Receipt } from "lucide-react";
 import { PageHeader } from "@/components/PageHeader";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
@@ -13,7 +14,7 @@ import { Modal } from "@/components/ui/Modal";
 import { WhatsAppIcon } from "@/components/icons/WhatsAppIcon";
 import { SUPPORT_WHATSAPP_NUMBER } from "@/components/layout/SupportWhatsAppButton";
 import { createCheckoutSession, getOpenInvoiceLink } from "@/lib/actions/billing";
-import { buildWhatsAppLink, cn, formatCurrencyBRL } from "@/lib/utils";
+import { APP_TIMEZONE, buildWhatsAppLink, cn, formatCurrencyBRL } from "@/lib/utils";
 
 interface OpenInvoice {
   url: string;
@@ -376,7 +377,7 @@ export function PlanoPageClient({
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-sm font-medium text-brand-graphite">{label}</p>
                       <p className="text-xs text-brand-graphite/50">
-                        {format(new Date(event.created_at), "dd/MM/yyyy", { locale: ptBR })}
+                        {formatInTimeZone(event.created_at, APP_TIMEZONE, "dd/MM/yyyy", { locale: ptBR })}
                       </p>
                     </div>
                     {event.amount_cents !== null && (
