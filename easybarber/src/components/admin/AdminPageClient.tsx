@@ -26,6 +26,7 @@ import { SubscriptionStatusBadge } from "@/components/ui/StatusBadge";
 import { RevenueChart } from "@/components/admin/RevenueChart";
 import {
   grantSubscriptionAccess,
+  updateCompanyPlan,
   updatePlanPrice,
   updateSubscriptionStatus,
   type AdminAuditLogRow,
@@ -55,6 +56,11 @@ export function AdminPageClient({
   const [suspendTarget, setSuspendTarget] = React.useState<AdminCompanyRow | null>(null);
   const [grantTarget, setGrantTarget] = React.useState<AdminCompanyRow | null>(null);
   const [busyCompanyId, setBusyCompanyId] = React.useState<string | null>(null);
+  const [planChangeTarget, setPlanChangeTarget] = React.useState<{
+    company: AdminCompanyRow;
+    plan: AdminPlanRow;
+  } | null>(null);
+  const [changingPlan, setChangingPlan] = React.useState(false);
 
   const filtered = companies.filter((c) =>
     c.company_name.toLowerCase().includes(query.toLowerCase()),
@@ -71,6 +77,20 @@ export function AdminPageClient({
     setBusyCompanyId(null);
     if (result.ok) {
       setSuspendTarget(null);
+      router.refresh();
+    }
+  };
+
+  const handlePlanChange = async () => {
+    if (!planChangeTarget) return;
+    setChangingPlan(true);
+    const result = await updateCompanyPlan(
+      planChangeTarget.company.company_id,
+      planChangeTarget.plan.id,
+    );
+    setChangingPlan(false);
+    if (result.ok) {
+      setPlanChangeTarget(null);
       router.refresh();
     }
   };
@@ -206,6 +226,18 @@ export function AdminPageClient({
                         <Button size="sm" variant="secondary" onClick={() => setGrantTarget(c)}>
                           Liberar acesso
                         </Button>
+                        {plans
+                          .filter((p) => p.active && p.id !== c.plan_id)
+                          .map((p) => (
+                            <Button
+                              key={p.id}
+                              size="sm"
+                              variant="secondary"
+                              onClick={() => setPlanChangeTarget({ company: c, plan: p })}
+                            >
+                              Mudar para {p.name}
+                            </Button>
+                          ))}
                       </div>
                     </td>
                   </tr>
@@ -325,6 +357,20 @@ export function AdminPageClient({
         onConfirm={handleSuspend}
         onClose={() => setSuspendTarget(null)}
       />
+
+      <ConfirmDialog
+        open={!!planChangeTarget}
+        title="Alterar plano desta empresa?"
+        description={
+          planChangeTarget
+            ? `${planChangeTarget.company.company_name} passa do plano ${planChangeTarget.company.plan_name ?? "atual"} para ${planChangeTarget.plan.name} (${formatCurrencyBRL(planChangeTarget.plan.price_cents / 100)}/mês). A data de cobrança não muda, só o valor/limites do plano.`
+            : ""
+        }
+        confirmLabel="Alterar plano"
+        busy={changingPlan}
+        onConfirm={handlePlanChange}
+        onClose={() => setPlanChangeTarget(null)}
+      />
     </div>
   );
 }
@@ -341,6 +387,11 @@ function describeAuditAction(entry: AdminAuditLogRow): string {
       const from = typeof metadata.from === "string" ? metadata.from : "?";
       const to = typeof metadata.to === "string" ? metadata.to : "?";
       return `Status de assinatura alterado de ${from} para ${to}`;
+    }
+    case "company_plan_changed": {
+      const from = typeof metadata.from_plan === "string" ? metadata.from_plan : "?";
+      const to = typeof metadata.to_plan === "string" ? metadata.to_plan : "?";
+      return `Plano alterado de ${from} para ${to}`;
     }
     case "admin_granted_subscription_access": {
       const days = typeof metadata.days === "number" ? metadata.days : null;

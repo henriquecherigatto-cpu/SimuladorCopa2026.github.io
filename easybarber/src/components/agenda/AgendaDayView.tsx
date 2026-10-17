@@ -1,20 +1,28 @@
 "use client";
 
 import * as React from "react";
-import { addDays, format } from "date-fns";
+import { addDays, endOfWeek, format, startOfWeek } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { CalendarOff, CalendarPlus, ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/Button";
-import { EmptyState } from "@/components/ui/EmptyState";
 import { Avatar } from "@/components/ui/Avatar";
 import { AppointmentStatusBadge } from "@/components/ui/StatusBadge";
+import { EmptyState } from "@/components/ui/EmptyState";
 import { AppointmentDetailsModal } from "@/components/agenda/AppointmentDetailsModal";
+import { MiniCalendarModal } from "@/components/agenda/MiniCalendarModal";
 import {
   listAppointmentsInRange,
   type AppointmentListItem,
 } from "@/lib/actions/appointments";
 import { useAppointmentsRealtime } from "@/lib/hooks/useAppointmentsRealtime";
-import { cn, hhmmToMinutes, minutesToHHMM, todayISOInAppTimezone } from "@/lib/utils";
+import {
+  cn,
+  hhmmToMinutes,
+  minutesToHHMM,
+  todayISOInAppTimezone,
+  todayInAppTimezone,
+  WEEKDAY_LETTERS,
+} from "@/lib/utils";
 
 const SLOT_MINUTES = 30;
 const ROW_HEIGHT = 64; // px per 30-minute slot
@@ -134,6 +142,7 @@ export function AgendaDayView({
   businessHours: BusinessHoursRow[];
 }) {
   const [selectedDate, setSelectedDate] = React.useState(() => todayISOInAppTimezone());
+  const [calendarOpen, setCalendarOpen] = React.useState(false);
   const [activeProfessional, setActiveProfessional] = React.useState<
     string | "todos"
   >("todos");
@@ -143,6 +152,7 @@ export function AgendaDayView({
   const [appointments, setAppointments] = React.useState<AppointmentListItem[]>([]);
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
+  const [summary, setSummary] = React.useState({ today: 0, week: 0 });
 
   const loadAppointments = React.useCallback(() => {
     setLoading(true);
@@ -157,17 +167,54 @@ export function AgendaDayView({
     });
   }, [selectedDate]);
 
+  const loadSummary = React.useCallback(() => {
+    const todayStr = todayISOInAppTimezone();
+    const today = todayInAppTimezone();
+    const weekStartStr = toISODate(startOfWeek(today, { weekStartsOn: 1 }));
+    const weekEndStr = toISODate(endOfWeek(today, { weekStartsOn: 1 }));
+    Promise.all([
+      listAppointmentsInRange(todayStr, todayStr),
+      listAppointmentsInRange(weekStartStr, weekEndStr),
+    ]).then(([todayResult, weekResult]) => {
+      setSummary({
+        today: todayResult.ok ? todayResult.data.length : 0,
+        week: weekResult.ok ? weekResult.data.length : 0,
+      });
+    });
+  }, []);
+
   React.useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     loadAppointments();
   }, [loadAppointments]);
 
-  useAppointmentsRealtime(loadAppointments);
+  React.useEffect(() => {
+    loadSummary();
+  }, [loadSummary]);
+
+  const refreshAll = React.useCallback(() => {
+    loadAppointments();
+    loadSummary();
+  }, [loadAppointments, loadSummary]);
+  useAppointmentsRealtime(refreshAll);
 
   const dateObj = React.useMemo(
     () => new Date(`${selectedDate}T00:00:00`),
     [selectedDate],
   );
+  const weekDays = React.useMemo(() => {
+    const weekStart = startOfWeek(dateObj, { weekStartsOn: 1 });
+    return Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
+  }, [dateObj]);
+  const weekRangeLabel = React.useMemo(() => {
+    const first = weekDays[0];
+    const last = weekDays[6];
+    const sameMonth = format(first, "MM") === format(last, "MM");
+    return sameMonth
+      ? `${format(first, "d")} – ${format(last, "d 'de' MMMM", { locale: ptBR })}`
+      : `${format(first, "d 'de' MMM", { locale: ptBR })} – ${format(last, "d 'de' MMM", { locale: ptBR })}`;
+  }, [weekDays]);
+
   const weekday = dateObj.getDay();
   const hours = businessHours.find((h) => h.day_of_week === weekday) ?? {
     day_of_week: weekday,
@@ -175,7 +222,7 @@ export function AgendaDayView({
     start_time: "08:00",
     end_time: "18:00",
   };
-  const isToday = selectedDate === todayISOInAppTimezone();
+  const todayStr = todayISOInAppTimezone();
 
   const dayAppointments = appointments.filter(
     (a) =>
@@ -209,33 +256,47 @@ export function AgendaDayView({
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-center gap-2">
+      <div className="grid grid-cols-2 gap-3">
+        <div className="rounded-2xl border border-black/5 bg-white px-4 py-3">
+          <p className="text-2xl font-semibold text-brand-graphite">{summary.today}</p>
+          <p className="text-xs text-brand-graphite/50">
+            agendamento{summary.today === 1 ? "" : "s"} hoje
+          </p>
+        </div>
+        <div className="rounded-2xl border border-black/5 bg-white px-4 py-3">
+          <p className="text-2xl font-semibold text-brand-graphite">{summary.week}</p>
+          <p className="text-xs text-brand-graphite/50">
+            agendamento{summary.week === 1 ? "" : "s"} esta semana
+          </p>
+        </div>
+      </div>
+
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="flex flex-wrap items-center gap-1">
           <button
-            onClick={() => setSelectedDate((d) => toISODate(addDays(new Date(`${d}T00:00:00`), -1)))}
-            aria-label="Dia anterior"
+            onClick={() => setSelectedDate((d) => toISODate(addDays(new Date(`${d}T00:00:00`), -7)))}
+            aria-label="Semana anterior"
             className="flex size-9 items-center justify-center rounded-lg border border-black/10 bg-white text-brand-graphite/60 hover:bg-black/5"
           >
             <ChevronLeft className="size-4" />
           </button>
-          <div className="min-w-0">
-            <p className="truncate text-sm font-semibold capitalize text-brand-graphite">
-              {format(dateObj, "EEEE, d 'de' MMMM", { locale: ptBR })}
-            </p>
-            {isToday && (
-              <p className="text-xs font-medium text-brand-orange">Hoje</p>
-            )}
-          </div>
           <button
-            onClick={() => setSelectedDate((d) => toISODate(addDays(new Date(`${d}T00:00:00`), 1)))}
-            aria-label="Próximo dia"
+            type="button"
+            onClick={() => setCalendarOpen(true)}
+            className="rounded-lg px-2 py-1.5 text-sm font-semibold capitalize text-brand-graphite hover:bg-black/5"
+          >
+            {weekRangeLabel}
+          </button>
+          <button
+            onClick={() => setSelectedDate((d) => toISODate(addDays(new Date(`${d}T00:00:00`), 7)))}
+            aria-label="Próxima semana"
             className="flex size-9 items-center justify-center rounded-lg border border-black/10 bg-white text-brand-graphite/60 hover:bg-black/5"
           >
             <ChevronRight className="size-4" />
           </button>
-          {!isToday && (
+          {selectedDate !== todayStr && (
             <button
-              onClick={() => setSelectedDate(todayISOInAppTimezone())}
+              onClick={() => setSelectedDate(todayStr)}
               className="rounded-lg px-2.5 py-1.5 text-xs font-medium text-brand-orange hover:bg-brand-orange/10"
             >
               Hoje
@@ -251,6 +312,39 @@ export function AgendaDayView({
         >
           Novo agendamento
         </Button>
+      </div>
+
+      <div className="grid grid-cols-7 gap-1.5">
+        {weekDays.map((day) => {
+          const iso = toISODate(day);
+          const isSelected = iso === selectedDate;
+          const isToday = iso === todayStr;
+          return (
+            <button
+              key={iso}
+              onClick={() => setSelectedDate(iso)}
+              className={cn(
+                "flex flex-col items-center gap-1 rounded-xl border py-2 transition-colors",
+                isSelected
+                  ? "border-transparent bg-brand-orange text-white"
+                  : "border-black/10 bg-white text-brand-graphite hover:bg-black/5",
+              )}
+            >
+              <span
+                className={cn(
+                  "text-[11px] font-medium uppercase",
+                  isSelected ? "text-white/80" : "text-brand-graphite/40",
+                )}
+              >
+                {WEEKDAY_LETTERS[day.getDay()]}
+              </span>
+              <span className="text-sm font-semibold">{format(day, "d")}</span>
+              {isToday && !isSelected && (
+                <span className="size-1 rounded-full bg-brand-orange" />
+              )}
+            </button>
+          );
+        })}
       </div>
 
       <div className="scrollbar-thin -mx-1 flex gap-2 overflow-x-auto px-1 pb-1">
@@ -385,6 +479,16 @@ export function AgendaDayView({
         appointment={detailsAppt}
         onClose={() => setDetailsAppt(null)}
         onChanged={loadAppointments}
+      />
+
+      <MiniCalendarModal
+        open={calendarOpen}
+        selectedDate={selectedDate}
+        onSelect={(iso) => {
+          setSelectedDate(iso);
+          setCalendarOpen(false);
+        }}
+        onClose={() => setCalendarOpen(false)}
       />
     </div>
   );
