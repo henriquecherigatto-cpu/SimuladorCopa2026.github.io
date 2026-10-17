@@ -68,6 +68,13 @@ export interface CreateCheckoutSessionInput {
    * apply_billing_event(), ever changes subscriptions.status.
    */
   returnUrl: string;
+  /**
+   * 1-100, from redeem_coupon() — discounts ONLY the first charge this
+   * call generates. The recurring subscription value (every renewal
+   * from the second month on) is never discounted. Omit/undefined for
+   * no coupon.
+   */
+  firstPaymentDiscountPercent?: number;
 }
 
 export interface CheckoutSession {
@@ -105,15 +112,20 @@ export interface PaymentProvider {
   createCheckoutSession(input: CreateCheckoutSessionInput): Promise<CheckoutSession>;
 
   /**
-   * The subscription's current open (not yet successfully paid)
-   * charge, if one exists — so the owner always has somewhere to find
-   * the payment link even if the provider's own notification (e.g.
-   * email) was missed. Read-only: never changes subscriptions.status,
-   * same as createCheckoutSession — only a verified webhook does that.
-   * Returns null if there's nothing currently open (e.g. this month
-   * already paid, or no charge generated yet).
+   * The customer's current open (not yet successfully paid) charge,
+   * if one exists — so the owner always has somewhere to find the
+   * payment link even if the provider's own notification (e.g. email)
+   * was missed, or they abandoned the Pix screen on first signup
+   * before paying. Keyed by customer rather than by subscription
+   * because a coupon-discounted first payment is its own standalone
+   * charge with no subscription behind it yet (see
+   * createCheckoutSession). Read-only: never changes
+   * subscriptions.status, same as createCheckoutSession — only a
+   * verified webhook does that. Returns null if there's nothing
+   * currently open (e.g. this month already paid, or no charge
+   * generated yet).
    */
-  getOpenInvoice(externalSubscriptionId: string): Promise<OpenInvoice | null>;
+  getOpenInvoice(externalCustomerId: string): Promise<OpenInvoice | null>;
 
   /**
    * Verifies the webhook request genuinely came from the provider,

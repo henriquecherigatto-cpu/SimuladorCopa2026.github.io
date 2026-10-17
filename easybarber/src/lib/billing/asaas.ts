@@ -96,6 +96,7 @@ export class AsaasProvider implements PaymentProvider {
     }
 
     const customerId = await this.findOrCreateCustomer(input);
+    const today = new Date().toISOString().slice(0, 10);
 
     // billingType: "PIX" — by the platform owner's choice, Pix is the
     // only payment method offered for now (boleto and card are
@@ -103,6 +104,58 @@ export class AsaasProvider implements PaymentProvider {
     // offer them either). Asaas still hosts the actual QR
     // code/copy-paste key on its own invoice page — this server never
     // generates or sees it directly.
+    if (input.firstPaymentDiscountPercent) {
+      // A coupon discounts the FIRST payment only. Rather than relying
+      // on an Asaas subscription-level discount field (which would
+      // need to reset after one cycle — not something to guess at
+      // without being able to verify it against Asaas's docs), this
+      // creates the discount as its own one-off Pix charge due today,
+      // then a separate recurring subscription at full price whose
+      // first due date is one cycle out — so this month was already
+      // collected via the one-off charge, and every renewal from here
+      // on charges the plan's normal, undiscounted value.
+      const discountedValueCents = Math.round(
+        (input.priceCents * (100 - input.firstPaymentDiscountPercent)) / 100,
+      );
+
+      const discountedPayment = await this.request<{ id: string; invoiceUrl: string }>(
+        "/payments",
+        {
+          method: "POST",
+          body: JSON.stringify({
+            customer: customerId,
+            billingType: "PIX",
+            value: discountedValueCents / 100,
+            dueDate: today,
+            description: `Easy Barber — ${input.planName} (1ª mensalidade com desconto)`,
+            externalReference: input.companyId,
+          }),
+        },
+      );
+
+      const nextCycleDueDate = new Date();
+      nextCycleDueDate.setMonth(nextCycleDueDate.getMonth() + 1);
+
+      const subscription = await this.request<{ id: string }>("/subscriptions", {
+        method: "POST",
+        body: JSON.stringify({
+          customer: customerId,
+          billingType: "PIX",
+          cycle: "MONTHLY",
+          value: input.priceCents / 100,
+          description: `Easy Barber — ${input.planName}`,
+          nextDueDate: nextCycleDueDate.toISOString().slice(0, 10),
+          externalReference: input.companyId,
+        }),
+      });
+
+      return {
+        url: discountedPayment.invoiceUrl,
+        externalCustomerId: customerId,
+        externalSubscriptionId: subscription.id,
+      };
+    }
+
     const subscription = await this.request<{ id: string }>("/subscriptions", {
       method: "POST",
       body: JSON.stringify({
@@ -111,7 +164,7 @@ export class AsaasProvider implements PaymentProvider {
         cycle: "MONTHLY",
         value: input.priceCents / 100,
         description: `Easy Barber — ${input.planName}`,
-        nextDueDate: new Date().toISOString().slice(0, 10),
+        nextDueDate: today,
         externalReference: input.companyId,
       }),
     });
@@ -131,17 +184,21 @@ export class AsaasProvider implements PaymentProvider {
     };
   }
 
-  async getOpenInvoice(externalSubscriptionId: string): Promise<OpenInvoice | null> {
+  async getOpenInvoice(externalCustomerId: string): Promise<OpenInvoice | null> {
     if (!this.isConfigured()) return null;
 
+    // By customer, not by subscription: a coupon-discounted first
+    // payment is created as a one-off charge with no subscription
+    // behind it at all (see createCheckoutSession above), so filtering
+    // by subscription would miss exactly the invoice a new signup
+    // most needs to find again after abandoning the Pix screen.
     // Filtered client-side rather than via an API-side status query
-    // param: GET /v3/payments?subscription= is the one call shape this
-    // adapter already relies on elsewhere (createCheckoutSession
-    // above), so this reuses exactly that instead of a second,
-    // unverified filter syntax.
+    // param, same reasoning as before: GET /v3/payments?customer= is a
+    // call shape this adapter already trusts (findOrCreateCustomer),
+    // rather than a second, unverified filter syntax.
     const payments = await this.request<{
       data: { invoiceUrl: string; dueDate: string; value: number; status: string }[];
-    }>(`/payments?subscription=${externalSubscriptionId}`);
+    }>(`/payments?customer=${externalCustomerId}`);
 
     const open = payments.data
       .filter((p) => p.status === "PENDING" || p.status === "OVERDUE")

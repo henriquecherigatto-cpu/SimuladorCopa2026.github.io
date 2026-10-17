@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { Building2, Lock, Mail, MapPin, Phone, User } from "lucide-react";
+import { Building2, CreditCard, Lock, Mail, MapPin, Phone, User } from "lucide-react";
 import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
 import { Alert } from "@/components/ui/Alert";
@@ -18,6 +18,7 @@ const signupSchema = z
     ownerName: z.string().min(2, "Informe o nome do responsável"),
     email: z.string().min(1, "Informe seu e-mail").email("E-mail inválido"),
     phone: z.string().min(8, "Informe um telefone válido"),
+    cnpj: z.string().min(11, "Informe um CPF ou CNPJ válido"),
     address: z.string().optional(),
     password: z.string().min(6, "Mínimo de 6 caracteres"),
     confirmPassword: z.string().min(1, "Confirme sua senha"),
@@ -96,6 +97,7 @@ export function SignupForm() {
       {
         p_name: values.companyName,
         p_phone: values.phone,
+        p_cnpj: values.cnpj,
         p_address: values.address || undefined,
       },
     );
@@ -109,7 +111,9 @@ export function SignupForm() {
 
     setSuccess(true);
     setTimeout(() => {
-      router.push("/dashboard");
+      // Every new signup needs a first payment before using the app —
+      // see src/app/(app)/layout.tsx's pendente gate.
+      router.push("/onboarding/pagamento");
       router.refresh();
     }, 1200);
   };
@@ -180,6 +184,14 @@ export function SignupForm() {
         leftIcon={<Phone className="size-4" />}
         error={errors.phone?.message}
         {...register("phone")}
+      />
+      <Input
+        label="CPF ou CNPJ"
+        placeholder="Só números"
+        leftIcon={<CreditCard className="size-4" />}
+        hint="Necessário para gerar a cobrança via Pix na próxima etapa. Pode ser o CPF do responsável ou o CNPJ da barbearia."
+        error={errors.cnpj?.message}
+        {...register("cnpj")}
       />
       <Input
         label="Endereço (opcional)"

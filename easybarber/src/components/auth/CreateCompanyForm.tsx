@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { Building2, MapPin, Phone } from "lucide-react";
+import { Building2, CreditCard, MapPin, Phone } from "lucide-react";
 import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
 import { Alert } from "@/components/ui/Alert";
@@ -14,6 +14,7 @@ import { createClient } from "@/lib/supabase/client";
 const schema = z.object({
   companyName: z.string().min(2, "Informe o nome da barbearia"),
   phone: z.string().min(8, "Informe um telefone válido"),
+  cnpj: z.string().min(11, "Informe um CPF ou CNPJ válido"),
   address: z.string().optional(),
 });
 
@@ -35,6 +36,7 @@ export function CreateCompanyForm() {
     const { error } = await supabase.rpc("create_company_with_owner", {
       p_name: values.companyName,
       p_phone: values.phone,
+      p_cnpj: values.cnpj,
       p_address: values.address || undefined,
     });
 
@@ -43,7 +45,9 @@ export function CreateCompanyForm() {
       return;
     }
 
-    router.push("/dashboard");
+    // Every new signup needs a first payment before using the app —
+    // see src/app/(app)/layout.tsx's pendente gate.
+    router.push("/onboarding/pagamento");
     router.refresh();
   };
 
@@ -64,6 +68,14 @@ export function CreateCompanyForm() {
         leftIcon={<Phone className="size-4" />}
         error={errors.phone?.message}
         {...register("phone")}
+      />
+      <Input
+        label="CPF ou CNPJ"
+        placeholder="Só números"
+        leftIcon={<CreditCard className="size-4" />}
+        hint="Necessário para gerar a cobrança via Pix na próxima etapa. Pode ser o CPF do responsável ou o CNPJ da barbearia."
+        error={errors.cnpj?.message}
+        {...register("cnpj")}
       />
       <Input
         label="Endereço (opcional)"

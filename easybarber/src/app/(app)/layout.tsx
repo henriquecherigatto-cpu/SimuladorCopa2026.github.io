@@ -55,7 +55,11 @@ export default async function AppGroupLayout({
   // RLS policy denies it to a professional and to a bare platform
   // admin with no company), and only an owner can act on it — a
   // professional has no reason to see a payment warning they can't
-  // do anything about.
+  // do anything about. In practice this also means a 'pendente'
+  // company can only ever be caught below for its owner: a
+  // professional member can't exist yet for a company that hasn't
+  // gotten past this very gate (adding one happens from inside the
+  // app, which this gate blocks until the first payment lands).
   let subscriptionAlert: SubscriptionAlert | null = null;
   if (membership?.role === "owner") {
     const { data: subscription } = await supabase
@@ -63,6 +67,15 @@ export default async function AppGroupLayout({
       .select("status, grace_period_ends_at")
       .eq("company_id", membership.company_id)
       .maybeSingle();
+
+    // 'pendente' means the first payment was never completed — unlike
+    // 'tolerancia'/'suspensa' below, access was never actually granted
+    // in the first place, so this redirects away from the whole app
+    // shell instead of just showing a banner. See
+    // /onboarding/pagamento for the checkout UI.
+    if (subscription?.status === "pendente") {
+      redirect("/onboarding/pagamento");
+    }
 
     if (subscription?.status === "suspensa") {
       subscriptionAlert = { variant: "suspended" };
