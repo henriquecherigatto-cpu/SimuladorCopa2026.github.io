@@ -7,44 +7,51 @@ import { Lock, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Modal } from "@/components/ui/Modal";
 import { Input } from "@/components/ui/Input";
+import { Select } from "@/components/ui/Select";
 import { Alert } from "@/components/ui/Alert";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { cn, todayISOInAppTimezone } from "@/lib/utils";
 import {
-  createCompanyTimeBlock,
-  deleteCompanyTimeBlock,
-  listCompanyTimeBlocks,
-  type CompanyTimeBlockRow,
+  createTimeBlock,
+  deleteTimeBlock,
+  listTimeBlocks,
+  type TimeBlockRow,
 } from "@/lib/actions/time-blocks";
+import type { ProfessionalChip } from "@/components/agenda/AgendaDayView";
 
 const todayISO = todayISOInAppTimezone;
+const WHOLE_COMPANY = "";
 
 /**
- * Owner-only: close the whole agenda (every professional) for a date
- * — a holiday, a full-day shutdown, or just part of a day (e.g. a
- * morning reserved for a store event). Backed by time_blocks with
- * professional_id = null, which the booking RPCs and the
- * business-hours trigger already treat as a hard block — this only
- * adds the owner-facing create/list/delete UI on top.
+ * Owner-only: close the agenda — for everyone or for one professional
+ * — over a single day or a date range (a holiday, a renovation, a
+ * professional's vacation). Backed by time_blocks; professional_id =
+ * null blocks the whole company, and a range spanning more than one
+ * day is always treated as a full-day closure on every date in it
+ * (there's no "closed 14h-17h every day of a 10-day range" case).
  */
-export function TimeBlockManager() {
+export function TimeBlockManager({ professionals }: { professionals: ProfessionalChip[] }) {
   const [open, setOpen] = React.useState(false);
-  const [blocks, setBlocks] = React.useState<CompanyTimeBlockRow[]>([]);
+  const [blocks, setBlocks] = React.useState<TimeBlockRow[]>([]);
   const [loading, setLoading] = React.useState(false);
 
-  const [date, setDate] = React.useState(todayISO());
+  const [professionalId, setProfessionalId] = React.useState(WHOLE_COMPANY);
+  const [startDate, setStartDate] = React.useState(todayISO());
+  const [endDate, setEndDate] = React.useState(todayISO());
   const [allDay, setAllDay] = React.useState(true);
   const [startTime, setStartTime] = React.useState("");
   const [endTime, setEndTime] = React.useState("");
   const [reason, setReason] = React.useState("");
   const [submitting, setSubmitting] = React.useState(false);
   const [formError, setFormError] = React.useState<string | null>(null);
-  const [deleteTarget, setDeleteTarget] = React.useState<CompanyTimeBlockRow | null>(null);
+  const [deleteTarget, setDeleteTarget] = React.useState<TimeBlockRow | null>(null);
   const [deleting, setDeleting] = React.useState(false);
+
+  const isRange = endDate > startDate;
 
   const loadBlocks = React.useCallback(() => {
     setLoading(true);
-    listCompanyTimeBlocks().then((result) => {
+    listTimeBlocks().then((result) => {
       setLoading(false);
       if (result.ok) setBlocks(result.data);
     });
@@ -56,7 +63,9 @@ export function TimeBlockManager() {
   };
 
   const resetForm = () => {
-    setDate(todayISO());
+    setProfessionalId(WHOLE_COMPANY);
+    setStartDate(todayISO());
+    setEndDate(todayISO());
     setAllDay(true);
     setStartTime("");
     setEndTime("");
@@ -68,21 +77,27 @@ export function TimeBlockManager() {
     e.preventDefault();
     setFormError(null);
 
-    if (!date) {
-      setFormError("Selecione uma data.");
+    if (!startDate || !endDate) {
+      setFormError("Selecione o período.");
       return;
     }
-    if (!allDay && (!startTime || !endTime)) {
+    if (endDate < startDate) {
+      setFormError("A data final deve ser igual ou depois da data inicial.");
+      return;
+    }
+    if (!isRange && !allDay && (!startTime || !endTime)) {
       setFormError("Informe o horário de início e fim.");
       return;
     }
 
     setSubmitting(true);
-    const result = await createCompanyTimeBlock({
-      date,
-      allDay,
-      startTime: allDay ? undefined : startTime,
-      endTime: allDay ? undefined : endTime,
+    const result = await createTimeBlock({
+      startDate,
+      endDate,
+      professionalId: professionalId || undefined,
+      allDay: isRange ? true : allDay,
+      startTime: !isRange && !allDay ? startTime : undefined,
+      endTime: !isRange && !allDay ? endTime : undefined,
       reason,
     });
     setSubmitting(false);
@@ -98,7 +113,7 @@ export function TimeBlockManager() {
   const handleDelete = async () => {
     if (!deleteTarget) return;
     setDeleting(true);
-    const result = await deleteCompanyTimeBlock(deleteTarget.id);
+    const result = await deleteTimeBlock(deleteTarget.id);
     setDeleting(false);
     if (result.ok) {
       setDeleteTarget(null);
@@ -106,7 +121,12 @@ export function TimeBlockManager() {
     }
   };
 
-  const formatBlockRange = (block: CompanyTimeBlockRow) => {
+  const describeTarget = (block: TimeBlockRow) =>
+    block.professional_id
+      ? professionals.find((p) => p.id === block.professional_id)?.name ?? "Profissional"
+      : "Barbearia toda";
+
+  const formatBlockRange = (block: TimeBlockRow) => {
     const start = new Date(block.starts_at);
     const end = new Date(block.ends_at);
     const sameDay = format(start, "yyyy-MM-dd") === format(end, "yyyy-MM-dd");
@@ -114,7 +134,7 @@ export function TimeBlockManager() {
     const dateLabel = format(start, "d 'de' MMMM", { locale: ptBR });
     if (isFullDay && sameDay) return `${dateLabel} · dia inteiro`;
     if (sameDay) return `${dateLabel} · ${format(start, "HH:mm")}–${format(end, "HH:mm")}`;
-    return `${format(start, "dd/MM HH:mm")} – ${format(end, "dd/MM HH:mm")}`;
+    return `${format(start, "dd/MM")} – ${format(end, "dd/MM")}`;
   };
 
   return (
@@ -125,75 +145,109 @@ export function TimeBlockManager() {
         icon={<Lock className="size-4" />}
         onClick={handleOpen}
       >
-        <span className="hidden sm:inline">Bloquear dia</span>
+        <span className="hidden sm:inline">Bloquear agenda</span>
       </Button>
 
       <Modal open={open} onClose={() => setOpen(false)} title="Bloquear agenda">
         <div className="flex flex-col gap-5">
           <p className="text-sm text-brand-graphite/60">
-            Feche a agenda para todos os profissionais em uma data — um
-            feriado, uma reforma, um evento. Ninguém consegue agendar nesse
-            período, nem pelo link público.
+            Feche a agenda — de um profissional ou da barbearia toda — em
+            um período. Ninguém consegue agendar nesse intervalo, nem
+            pelo link público.
           </p>
 
           <form onSubmit={handleSubmit} className="flex flex-col gap-4">
             {formError && <Alert variant="error">{formError}</Alert>}
 
-            <Input
-              type="date"
-              label="Data"
-              value={date}
-              min={todayISO()}
-              onChange={(e) => setDate(e.target.value)}
-            />
+            <Select
+              label="Quem fica bloqueado?"
+              value={professionalId}
+              onChange={(e) => setProfessionalId(e.target.value)}
+            >
+              <option value={WHOLE_COMPANY}>Barbearia toda</option>
+              {professionals.map((prof) => (
+                <option key={prof.id} value={prof.id}>
+                  {prof.name}
+                </option>
+              ))}
+            </Select>
 
-            <div className="flex gap-2">
-              <button
-                type="button"
-                onClick={() => setAllDay(true)}
-                className={cn(
-                  "flex-1 rounded-xl border px-3 py-2 text-sm font-medium transition-colors",
-                  allDay
-                    ? "border-brand-orange bg-brand-orange/10 text-brand-orange"
-                    : "border-black/10 text-brand-graphite/60",
-                )}
-              >
-                Dia inteiro
-              </button>
-              <button
-                type="button"
-                onClick={() => setAllDay(false)}
-                className={cn(
-                  "flex-1 rounded-xl border px-3 py-2 text-sm font-medium transition-colors",
-                  !allDay
-                    ? "border-brand-orange bg-brand-orange/10 text-brand-orange"
-                    : "border-black/10 text-brand-graphite/60",
-                )}
-              >
-                Período específico
-              </button>
+            <div className="grid grid-cols-2 gap-3">
+              <Input
+                type="date"
+                label="De"
+                value={startDate}
+                min={todayISO()}
+                onChange={(e) => {
+                  setStartDate(e.target.value);
+                  if (e.target.value > endDate) setEndDate(e.target.value);
+                }}
+              />
+              <Input
+                type="date"
+                label="Até"
+                value={endDate}
+                min={startDate}
+                onChange={(e) => setEndDate(e.target.value)}
+              />
             </div>
 
-            {!allDay && (
-              <div className="grid grid-cols-2 gap-3">
-                <Input
-                  type="time"
-                  label="Início"
-                  value={startTime}
-                  onChange={(e) => setStartTime(e.target.value)}
-                />
-                <Input
-                  type="time"
-                  label="Fim"
-                  value={endTime}
-                  onChange={(e) => setEndTime(e.target.value)}
-                />
-              </div>
+            {isRange ? (
+              <p className="rounded-xl bg-brand-surface px-3 py-2 text-xs text-brand-graphite/60">
+                Bloqueios de mais de um dia fecham o dia inteiro em cada
+                data do período.
+              </p>
+            ) : (
+              <>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setAllDay(true)}
+                    className={cn(
+                      "flex-1 rounded-xl border px-3 py-2 text-sm font-medium transition-colors",
+                      allDay
+                        ? "border-brand-orange bg-brand-orange/10 text-brand-orange"
+                        : "border-black/10 text-brand-graphite/60",
+                    )}
+                  >
+                    Dia inteiro
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setAllDay(false)}
+                    className={cn(
+                      "flex-1 rounded-xl border px-3 py-2 text-sm font-medium transition-colors",
+                      !allDay
+                        ? "border-brand-orange bg-brand-orange/10 text-brand-orange"
+                        : "border-black/10 text-brand-graphite/60",
+                    )}
+                  >
+                    Período específico
+                  </button>
+                </div>
+
+                {!allDay && (
+                  <div className="grid grid-cols-2 gap-3">
+                    <Input
+                      type="time"
+                      label="Início"
+                      value={startTime}
+                      onChange={(e) => setStartTime(e.target.value)}
+                    />
+                    <Input
+                      type="time"
+                      label="Fim"
+                      value={endTime}
+                      onChange={(e) => setEndTime(e.target.value)}
+                    />
+                  </div>
+                )}
+              </>
             )}
 
             <Input
               label="Motivo (opcional)"
-              placeholder="Ex: Feriado, reforma..."
+              placeholder="Ex: Feriado, reforma, férias..."
               value={reason}
               onChange={(e) => setReason(e.target.value)}
             />
@@ -222,7 +276,7 @@ export function TimeBlockManager() {
                   >
                     <div className="min-w-0">
                       <p className="truncate text-sm font-medium text-brand-graphite">
-                        {formatBlockRange(block)}
+                        {describeTarget(block)} · {formatBlockRange(block)}
                       </p>
                       {block.reason && (
                         <p className="truncate text-xs text-brand-graphite/50">{block.reason}</p>
@@ -249,7 +303,7 @@ export function TimeBlockManager() {
         title="Remover bloqueio?"
         description={
           deleteTarget
-            ? `A agenda volta a ficar disponível em "${formatBlockRange(deleteTarget)}".`
+            ? `A agenda volta a ficar disponível para "${describeTarget(deleteTarget)}" em "${formatBlockRange(deleteTarget)}".`
             : ""
         }
         confirmLabel="Remover"

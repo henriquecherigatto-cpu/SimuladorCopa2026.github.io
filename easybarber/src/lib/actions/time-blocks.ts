@@ -7,13 +7,14 @@ import { runAction, type ActionResult } from "@/lib/actions/action-result";
 import { APP_TIMEZONE } from "@/lib/utils";
 
 /**
- * Company-wide scheduled closures (a holiday, a full-day or partial
- * shutdown) — not a per-professional break. Backed by the existing
- * time_blocks table (professional_id = null means "the whole
- * company"), which check_appointment_within_hours() and
- * get_available_slots() already treat as a hard block — this file is
- * only the missing owner-facing CRUD on top of a schema that already
- * enforces it.
+ * Scheduled closures — the whole company or a single professional, a
+ * single day or a date range (a holiday, a renovation, a professional's
+ * vacation). Backed by the existing time_blocks table (professional_id
+ * = null means "the whole company"), which
+ * check_appointment_within_hours() and get_available_slots() already
+ * treat as a hard block for either case — see
+ * 20260101000022_fix_appointment_timezone.sql. This file is the
+ * owner-facing CRUD on top of a schema that already enforces it.
  */
 
 function assertOwner(role: string) {
@@ -23,15 +24,18 @@ function assertOwner(role: string) {
 }
 
 export interface TimeBlockInput {
-  date: string; // yyyy-MM-dd
-  allDay: boolean;
+  startDate: string; // yyyy-MM-dd
+  endDate: string; // yyyy-MM-dd, >= startDate
+  professionalId?: string | null; // null/omitted = whole company
+  allDay: boolean; // only meaningful when startDate === endDate
   startTime?: string; // HH:mm, required when !allDay
   endTime?: string; // HH:mm, required when !allDay
   reason?: string;
 }
 
-export interface CompanyTimeBlockRow {
+export interface TimeBlockRow {
   id: string;
+  professional_id: string | null;
   starts_at: string;
   ends_at: string;
   reason: string | null;
@@ -39,19 +43,17 @@ export interface CompanyTimeBlockRow {
 
 function revalidateAgenda() {
   revalidatePath("/agenda");
-  revalidatePath("/agenda/dia");
   revalidatePath("/agenda/novo");
 }
 
-export async function listCompanyTimeBlocks(): Promise<ActionResult<CompanyTimeBlockRow[]>> {
+export async function listTimeBlocks(): Promise<ActionResult<TimeBlockRow[]>> {
   return runAction(async () => {
     const { supabase, companyId } = await requireMembership();
 
     const { data, error } = await supabase
       .from("time_blocks")
-      .select("id, starts_at, ends_at, reason")
+      .select("id, professional_id, starts_at, ends_at, reason")
       .eq("company_id", companyId)
-      .is("professional_id", null)
       .gte("ends_at", new Date().toISOString())
       .order("starts_at", { ascending: true });
 
@@ -60,20 +62,36 @@ export async function listCompanyTimeBlocks(): Promise<ActionResult<CompanyTimeB
   });
 }
 
-export async function createCompanyTimeBlock(
+export async function createTimeBlock(
   input: TimeBlockInput,
 ): Promise<ActionResult<{ id: string }>> {
   return runAction(async () => {
     const { supabase, companyId, userId, role } = await requireMembership();
     assertOwner(role);
 
-    if (!input.date) throw new Error("Selecione uma data.");
+    if (!input.startDate) throw new Error("Selecione a data de início.");
+    const endDate = input.endDate || input.startDate;
+    if (endDate < input.startDate) {
+      throw new Error("A data final deve ser igual ou depois da data inicial.");
+    }
+    const multiDay = endDate !== input.startDate;
+
+    if (input.professionalId) {
+      const { data: professional, error: professionalError } = await supabase
+        .from("professionals")
+        .select("id")
+        .eq("id", input.professionalId)
+        .eq("company_id", companyId)
+        .maybeSingle();
+      if (professionalError) throw professionalError;
+      if (!professional) throw new Error("Profissional não encontrado.");
+    }
 
     let startsAt: Date;
     let endsAt: Date;
-    if (input.allDay) {
-      startsAt = fromZonedTime(`${input.date}T00:00:00`, APP_TIMEZONE);
-      endsAt = fromZonedTime(`${input.date}T23:59:59.999`, APP_TIMEZONE);
+    if (multiDay || input.allDay) {
+      startsAt = fromZonedTime(`${input.startDate}T00:00:00`, APP_TIMEZONE);
+      endsAt = fromZonedTime(`${endDate}T23:59:59.999`, APP_TIMEZONE);
     } else {
       if (!input.startTime || !input.endTime) {
         throw new Error("Informe o horário de início e fim do bloqueio.");
@@ -81,15 +99,15 @@ export async function createCompanyTimeBlock(
       if (input.startTime >= input.endTime) {
         throw new Error("O horário de início deve ser antes do horário de fim.");
       }
-      startsAt = fromZonedTime(`${input.date}T${input.startTime}:00`, APP_TIMEZONE);
-      endsAt = fromZonedTime(`${input.date}T${input.endTime}:00`, APP_TIMEZONE);
+      startsAt = fromZonedTime(`${input.startDate}T${input.startTime}:00`, APP_TIMEZONE);
+      endsAt = fromZonedTime(`${input.startDate}T${input.endTime}:00`, APP_TIMEZONE);
     }
 
     const { data, error } = await supabase
       .from("time_blocks")
       .insert({
         company_id: companyId,
-        professional_id: null,
+        professional_id: input.professionalId || null,
         starts_at: startsAt.toISOString(),
         ends_at: endsAt.toISOString(),
         reason: input.reason?.trim() || null,
@@ -105,16 +123,16 @@ export async function createCompanyTimeBlock(
   });
 }
 
-export async function deleteCompanyTimeBlock(id: string): Promise<ActionResult<undefined>> {
+export async function deleteTimeBlock(id: string): Promise<ActionResult<undefined>> {
   return runAction(async () => {
-    const { supabase, role } = await requireMembership();
+    const { supabase, companyId, role } = await requireMembership();
     assertOwner(role);
 
     const { error } = await supabase
       .from("time_blocks")
       .delete()
       .eq("id", id)
-      .is("professional_id", null);
+      .eq("company_id", companyId);
 
     if (error) throw error;
 

@@ -21,6 +21,7 @@ import { runAction, type ActionResult } from "@/lib/actions/action-result";
 export interface AdminCompanyRow {
   company_id: string;
   company_name: string;
+  plan_id: string | null;
   plan_name: string | null;
   plan_price_cents: number | null;
   subscription_status: "ativa" | "pendente" | "tolerancia" | "suspensa" | "cancelada" | null;
@@ -158,6 +159,29 @@ export async function updateSubscriptionStatus(
       .eq("company_id", companyId);
     if (error) throw error;
     if (!count) throw new Error("Assinatura não encontrada para esta empresa.");
+
+    revalidatePath("/admin");
+    return undefined;
+  });
+}
+
+/**
+ * Moves a company to a different plan (e.g. Essencial -> Profissional)
+ * from the admin panel. See admin_update_company_plan() in
+ * supabase/migrations/20260101000033_admin_plan_change.sql.
+ */
+export async function updateCompanyPlan(
+  companyId: string,
+  planId: string,
+): Promise<ActionResult<undefined>> {
+  return runAction(async () => {
+    const { supabase } = await requirePlatformAdmin();
+
+    const { error } = await supabase.rpc("admin_update_company_plan", {
+      p_company_id: companyId,
+      p_plan_id: planId,
+    });
+    if (error) throw error;
 
     revalidatePath("/admin");
     return undefined;

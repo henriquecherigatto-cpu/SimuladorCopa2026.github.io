@@ -38,5 +38,7 @@
 \ir 140_whatsapp_plan_gating.sql
 \echo '=== 150_signup_payment_coupons.sql ==='
 \ir 150_signup_payment_coupons.sql
+\echo '=== 160_admin_plan_change.sql ==='
+\ir 160_admin_plan_change.sql
 
 \echo '=== ALL NEGATIVE TESTS PASSED ==='

@@ -41,6 +41,14 @@ export const WEEKDAY_LABELS = [
 ];
 
 /**
+ * Single-letter weekday abbreviations, derived from WEEKDAY_LABELS so
+ * the two never drift apart — e.g. index-aligned, Monday-first display
+ * order [1,2,3,4,5,6,0] reads "S T Q Q S S D". Used by the Agenda's
+ * week strip and its mini-calendar date picker.
+ */
+export const WEEKDAY_LETTERS = WEEKDAY_LABELS.map((label) => label[0]);
+
+/**
  * "Today", as a YYYY-MM-DD string, in the business's own timezone —
  * never the runtime's system clock. A plain `new Date()` rendered as
  * a calendar date disagrees with itself between the server (this
@@ -49,7 +57,7 @@ export const WEEKDAY_LABELS = [
  * which both mis-defaults "today" in the UI and triggers a
  * server/client hydration mismatch. Used anywhere agenda UI needs
  * "today" as a default/comparison value — see AgendaDayView,
- * AgendaWeekView, TimeBlockManager, NewAppointmentForm.
+ * TimeBlockManager, NewAppointmentForm.
  */
 export function todayISOInAppTimezone(): string {
   return formatInTimeZone(new Date(), APP_TIMEZONE, "yyyy-MM-dd");

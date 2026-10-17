@@ -923,6 +923,7 @@ export type Database = {
           company_name: string;
           customer_count: number;
           next_payment_date: string;
+          plan_id: string;
           plan_name: string;
           plan_price_cents: number;
           professional_count: number;
@@ -955,6 +956,10 @@ export type Database = {
           month: string;
           revenue_cents: number;
         }[];
+      };
+      admin_update_company_plan: {
+        Args: { p_company_id: string; p_plan_id: string };
+        Returns: undefined;
       };
       admin_update_plan_price: {
         Args: { p_plan_id: string; p_price_cents: number };
