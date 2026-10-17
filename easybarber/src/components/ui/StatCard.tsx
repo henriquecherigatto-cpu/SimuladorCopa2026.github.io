@@ -25,8 +25,8 @@ export function StatCard({
   return (
     <Card className={cn("min-w-0 p-4 sm:p-5", className)}>
       <div className="flex min-w-0 items-start justify-between gap-2 sm:gap-3">
-        <div className="flex min-w-0 flex-col gap-1">
-          <span className="truncate text-xl font-bold text-brand-graphite sm:text-2xl">
+        <div className="flex min-w-0 flex-1 flex-col gap-1">
+          <span className="break-words text-lg font-bold leading-tight text-brand-graphite sm:text-2xl">
             {value}
           </span>
           <span className="truncate text-sm text-brand-graphite/60">{label}</span>
