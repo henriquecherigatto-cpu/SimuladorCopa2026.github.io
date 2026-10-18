@@ -10,7 +10,31 @@ import { Alert } from "@/components/ui/Alert";
 import { createCheckoutSession, getOpenInvoiceLink, previewCoupon } from "@/lib/actions/billing";
 import { useRealtimeTable } from "@/lib/hooks/useRealtimeTable";
 import { createClient } from "@/lib/supabase/client";
+import { onboardingStepRoute } from "@/lib/onboarding";
 import { cn, formatCurrencyBRL } from "@/lib/utils";
+
+/**
+ * Opens the Asaas invoice in its own tab instead of navigating this
+ * one away to it. Asaas's hosted Pix page never redirects back to us
+ * on its own — a full-page redirect (window.location.href) would
+ * strand the owner there with no way back, AND it unmounts this
+ * component, killing the Realtime listener below that's what
+ * actually detects the payment and moves them forward. Keeping this
+ * tab alive is what makes that listener able to do its job.
+ *
+ * Opened synchronously, before the async checkout-session call, so
+ * the browser still attributes it to the click (a popup opened after
+ * an await is commonly blocked, e.g. in Safari) — its location is set
+ * once the real URL is known. Falls back to navigating this tab if
+ * the popup was blocked anyway (strict blocker settings).
+ */
+function openInvoiceTab(url: string, popup: Window | null) {
+  if (popup && !popup.closed) {
+    popup.location.href = url;
+  } else {
+    window.location.href = url;
+  }
+}
 
 interface PlanRow {
   id: string;
@@ -78,22 +102,31 @@ export function PagamentoOnboardingClient({
   const handleCheckout = async () => {
     setCheckoutError(null);
     setSubmitting(true);
+    const popup = window.open("", "_blank");
     const result = await createCheckoutSession(
       selectedPlanId,
       couponState === "valid" ? couponInput.trim() : undefined,
       "/onboarding/pagamento",
     );
     if (!result.ok) {
+      popup?.close();
       setSubmitting(false);
       setCheckoutError(result.error);
       return;
     }
-    window.location.href = result.data.url;
+    openInvoiceTab(result.data.url, popup);
+    setSubmitting(false);
+    setWaiting(true);
   };
 
   // Once the webhook confirms the payment, subscriptions.status flips
-  // away from 'pendente' — jump straight to the dashboard the instant
-  // that happens, no manual reload needed.
+  // away from 'pendente' — jump straight into the onboarding sequence
+  // the instant that happens, no manual reload needed. Always step 0
+  // (horários) here: this page's own server-side guard never renders
+  // this component unless the company is still pendente, and every
+  // wizard step page itself redirects back to /onboarding/pagamento
+  // while pendente — so nothing could have advanced onboarding_step
+  // past 0 while payment was still outstanding.
   const checkIfPaid = React.useCallback(async () => {
     const supabase = createClient();
     const { data } = await supabase
@@ -102,7 +135,7 @@ export function PagamentoOnboardingClient({
       .eq("company_id", companyId)
       .maybeSingle();
     if (data && data.status !== "pendente") {
-      router.push("/dashboard");
+      router.push(onboardingStepRoute(0));
       router.refresh();
     }
   }, [companyId, router]);
@@ -121,17 +154,20 @@ export function PagamentoOnboardingClient({
   const handleResume = async () => {
     setResuming(true);
     setResumeError(null);
+    const popup = window.open("", "_blank");
     const result = await getOpenInvoiceLink();
     setResuming(false);
     if (!result.ok) {
+      popup?.close();
       setResumeError(result.error);
       return;
     }
     if (!result.data) {
+      popup?.close();
       setResumeError("Nenhuma cobrança em aberto encontrada.");
       return;
     }
-    window.location.href = result.data.url;
+    openInvoiceTab(result.data.url, popup);
   };
 
   if (waiting) {
@@ -143,8 +179,9 @@ export function PagamentoOnboardingClient({
             Aguardando confirmação do pagamento
           </h1>
           <p className="text-sm text-brand-graphite/60">
-            Assim que o Pix for confirmado, você é liberado automaticamente
-            — não precisa recarregar a página.
+            O Pix abriu em uma nova aba. Pague por lá e volte para esta
+            aba — assim que for confirmado, você é liberado
+            automaticamente, não precisa recarregar a página.
           </p>
           {resumeError && (
             <div className="flex flex-col items-center gap-2">

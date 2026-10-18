@@ -5,12 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 
 export const metadata: Metadata = { title: "Pagamento — Easy Barber" };
 
-export default async function OnboardingPagamentoPage({
-  searchParams,
-}: {
-  searchParams: Promise<{ checkout?: string }>;
-}) {
-  const { checkout } = await searchParams;
+export default async function OnboardingPagamentoPage() {
   const supabase = await createClient();
   const { data: claimsData } = await supabase.auth.getClaims();
   const userId = claimsData?.claims?.sub;
@@ -31,7 +26,7 @@ export default async function OnboardingPagamentoPage({
 
   const { data: subscription } = await supabase
     .from("subscriptions")
-    .select("status, plan_id")
+    .select("status, plan_id, external_customer_id")
     .eq("company_id", membership.company_id)
     .maybeSingle();
 
@@ -52,7 +47,13 @@ export default async function OnboardingPagamentoPage({
       companyId={membership.company_id}
       plans={plans ?? []}
       currentPlanId={subscription.plan_id}
-      awaitingConfirmation={checkout === "pendente"}
+      // external_customer_id is set the moment createCheckoutSession
+      // succeeds (see billing.ts) — a reliable, persistent signal
+      // that a checkout was already started, so closing the tab and
+      // coming back (even days later) still shows "aguardando
+      // confirmação" instead of the plan picker again, exactly as
+      // required: the flow can't be broken by a lost tab.
+      awaitingConfirmation={!!subscription.external_customer_id}
     />
   );
 }
