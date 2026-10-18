@@ -80,7 +80,7 @@ function friendlyPublicError(error: unknown): string {
     return "Informe seu nome.";
   }
   if (message.includes("phone is required")) {
-    return "Informe seu telefone.";
+    return "Informe um telefone válido com DDD.";
   }
   if (message.includes("not found")) {
     return "Barbearia não encontrada.";
@@ -223,7 +223,7 @@ export async function createPublicBooking(
 ): Promise<ActionResult<PublicBookingResult>> {
   try {
     if (!input.customerName.trim()) throw new Error("name is required");
-    if (!input.customerPhone.trim()) throw new Error("phone is required");
+    if (input.customerPhone.replace(/\D/g, "").length < 11) throw new Error("phone is required");
     if (!input.serviceId || !input.professionalId || !input.date || !input.startTime) {
       throw new Error("Selecione serviço, profissional, data e horário.");
     }

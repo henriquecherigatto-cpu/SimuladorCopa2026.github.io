@@ -146,7 +146,7 @@ export function TimeBlockManager({ professionals }: { professionals: Professiona
         icon={<Lock className="size-4" />}
         onClick={handleOpen}
       >
-        <span className="hidden sm:inline">Bloquear agenda</span>
+        Bloquear agenda
       </Button>
 
       <Modal open={open} onClose={() => setOpen(false)} title="Bloquear agenda">

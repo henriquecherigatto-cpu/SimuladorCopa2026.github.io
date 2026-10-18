@@ -16,7 +16,14 @@ import {
   type PublicProfessional,
   type PublicService,
 } from "@/lib/actions/public-booking";
-import { buildGoogleCalendarLink, cn, formatCurrencyBRL, hhmmToMinutes, minutesToHHMM } from "@/lib/utils";
+import {
+  buildGoogleCalendarLink,
+  cn,
+  formatBrazilianPhoneInput,
+  formatCurrencyBRL,
+  hhmmToMinutes,
+  minutesToHHMM,
+} from "@/lib/utils";
 
 export function PublicBookingForm({
   slug,
@@ -89,7 +96,9 @@ export function PublicBookingForm({
     if (!date) next.date = "Selecione uma data";
     if (!time) next.time = "Selecione um horário disponível";
     if (!customerName.trim()) next.customerName = "Informe seu nome";
-    if (!customerPhone.trim()) next.customerPhone = "Informe seu telefone";
+    if (customerPhone.replace(/\D/g, "").length < 11) {
+      next.customerPhone = "Informe um telefone válido com DDD";
+    }
     setErrors(next);
     return Object.keys(next).length === 0;
   };
@@ -322,8 +331,8 @@ export function PublicBookingForm({
               type="tel"
               leftIcon={<Phone className="size-4" />}
               value={customerPhone}
-              onChange={(e) => setCustomerPhone(e.target.value)}
-              placeholder="(19) 99999-9999"
+              onChange={(e) => setCustomerPhone(formatBrazilianPhoneInput(e.target.value))}
+              placeholder="(19) 9 9999-9999"
               error={errors.customerPhone}
             />
             <Input
