@@ -11,6 +11,17 @@ every company). The Meta Cloud API migration is genuinely multi-tenant:
 Embedded Signup, so there is no single "the" provider anymore, only "company
 X's own connection."
 
+> **Sending is currently paused in production** via a hard kill switch
+> (`isWhatsAppSendingEnabled()` in `src/lib/whatsapp/feature-flag.ts`,
+> hardcoded `false`) — the platform's own Meta Business verification needs a
+> CNPJ the company doesn't have yet, so the "Torne-se um Provedor de
+> Tecnologia" step (Embedded Signup) can't be completed. Everything below is
+> still fully built and tested; this is a business-timeline decision, not a
+> code gap. Flip that one function to `true` once verification clears and
+> the real Meta env vars are set — the Configurações UI and the
+> `coming_soon` flag on the Profissional plan (see
+> `20260101000037_plan_coming_soon.sql`) should come back at the same time.
+
 ## Where each piece lives
 
 | Concern | File |

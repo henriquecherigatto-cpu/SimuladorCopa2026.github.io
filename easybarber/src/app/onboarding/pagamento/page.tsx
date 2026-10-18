@@ -44,6 +44,7 @@ export default async function OnboardingPagamentoPage({
     .from("plans")
     .select("id, name, price_cents, features")
     .eq("active", true)
+    .eq("coming_soon", false)
     .order("price_cents", { ascending: true });
 
   return (

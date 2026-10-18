@@ -479,6 +479,7 @@ export type Database = {
       plans: {
         Row: {
           active: boolean;
+          coming_soon: boolean;
           created_at: string;
           features: NonNullable<Json>;
           id: string;
@@ -493,6 +494,7 @@ export type Database = {
         ComputedFields: never;
         Insert: {
           active?: boolean;
+          coming_soon?: boolean;
           created_at?: string;
           features?: NonNullable<Json>;
           id?: string;
@@ -506,6 +508,7 @@ export type Database = {
         };
         Update: {
           active?: boolean;
+          coming_soon?: boolean;
           created_at?: string;
           features?: NonNullable<Json>;
           id?: string;

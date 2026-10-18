@@ -3,6 +3,7 @@ import { formatInTimeZone } from "date-fns-tz";
 import { ptBR } from "date-fns/locale";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import { getWhatsAppProvider } from "@/lib/whatsapp/provider";
+import { isWhatsAppSendingEnabled } from "@/lib/whatsapp/feature-flag";
 import { APP_TIMEZONE } from "@/lib/utils";
 import type { PublicBookingResult } from "@/lib/actions/public-booking";
 
@@ -26,6 +27,7 @@ export async function sendBookingConfirmation(
   booking: PublicBookingResult,
 ): Promise<void> {
   if (!booking.found || !booking.startsAt) return;
+  if (!isWhatsAppSendingEnabled()) return;
 
   const serviceRoleClient = createServiceRoleClient();
 

@@ -1,13 +1,19 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { PublicBookingResult } from "@/lib/actions/public-booking";
 
-const { mockCreateServiceRoleClient, mockGetWhatsAppProvider, mockIsConfigured, mockSendMessage } =
-  vi.hoisted(() => ({
-    mockCreateServiceRoleClient: vi.fn(),
-    mockGetWhatsAppProvider: vi.fn(),
-    mockIsConfigured: vi.fn(),
-    mockSendMessage: vi.fn(),
-  }));
+const {
+  mockCreateServiceRoleClient,
+  mockGetWhatsAppProvider,
+  mockIsConfigured,
+  mockSendMessage,
+  mockIsWhatsAppSendingEnabled,
+} = vi.hoisted(() => ({
+  mockCreateServiceRoleClient: vi.fn(),
+  mockGetWhatsAppProvider: vi.fn(),
+  mockIsConfigured: vi.fn(),
+  mockSendMessage: vi.fn(),
+  mockIsWhatsAppSendingEnabled: vi.fn(),
+}));
 
 vi.mock("@/lib/supabase/service-role", () => ({
   createServiceRoleClient: mockCreateServiceRoleClient,
@@ -15,6 +21,14 @@ vi.mock("@/lib/supabase/service-role", () => ({
 
 vi.mock("@/lib/whatsapp/provider", () => ({
   getWhatsAppProvider: mockGetWhatsAppProvider,
+}));
+
+// Mocked true by default so every existing test below keeps
+// exercising the real send-decision logic (eligibility, opt-out,
+// duplicate prevention, …) independent of the kill switch's real
+// production value — that gate gets its own dedicated test instead.
+vi.mock("@/lib/whatsapp/feature-flag", () => ({
+  isWhatsAppSendingEnabled: mockIsWhatsAppSendingEnabled,
 }));
 
 const { sendBookingConfirmation } = await import("@/lib/whatsapp/send-booking-confirmation");
@@ -106,6 +120,7 @@ const BOOKING: PublicBookingResult = {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  mockIsWhatsAppSendingEnabled.mockReturnValue(true);
   mockIsConfigured.mockReturnValue(true);
   mockSendMessage.mockResolvedValue({ ok: true, providerMessageId: "wamid.OK" });
   mockGetWhatsAppProvider.mockResolvedValue({
@@ -203,6 +218,15 @@ describe("sendBookingConfirmation", () => {
 
   it("does nothing at all for a booking that was never found", async () => {
     await sendBookingConfirmation("11999999999", { ...BOOKING, found: false });
+
+    expect(mockCreateServiceRoleClient).not.toHaveBeenCalled();
+    expect(mockSendMessage).not.toHaveBeenCalled();
+  });
+
+  it("does nothing at all when the hard kill switch is off", async () => {
+    mockIsWhatsAppSendingEnabled.mockReturnValue(false);
+
+    await sendBookingConfirmation("11999999999", BOOKING);
 
     expect(mockCreateServiceRoleClient).not.toHaveBeenCalled();
     expect(mockSendMessage).not.toHaveBeenCalled();

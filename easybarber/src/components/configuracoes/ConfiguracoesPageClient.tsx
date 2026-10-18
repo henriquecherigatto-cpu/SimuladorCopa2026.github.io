@@ -31,6 +31,7 @@ import { Switch } from "@/components/ui/Switch";
 import { updateCompanySettings, updateBusinessHours } from "@/lib/actions/companies";
 import type { WhatsAppConnectionStatus } from "@/lib/actions/whatsapp-connection";
 import { WhatsAppConnectionModal } from "@/components/configuracoes/WhatsAppConnectionModal";
+import { isWhatsAppSendingEnabled } from "@/lib/whatsapp/feature-flag";
 import { WEEKDAY_LABELS } from "@/lib/utils";
 import type { BusinessHours } from "@/types";
 
@@ -157,12 +158,21 @@ export function ConfiguracoesPageClient({
           subtitle="Lembretes de agendamento"
           onClick={() => setOpen("notifications")}
         />
-        {canManage && (
+        {isWhatsAppSendingEnabled() ? (
+          canManage && (
+            <SettingsRow
+              icon={MessageCircle}
+              title="Integração com WhatsApp"
+              subtitle={WHATSAPP_CONNECTION_SUBTITLE[whatsappConnection.status]}
+              onClick={() => setOpen("whatsapp")}
+            />
+          )
+        ) : (
           <SettingsRow
             icon={MessageCircle}
             title="Integração com WhatsApp"
-            subtitle={WHATSAPP_CONNECTION_SUBTITLE[whatsappConnection.status]}
-            onClick={() => setOpen("whatsapp")}
+            subtitle="Confirmação automática de agendamento"
+            disabled
           />
         )}
         <SettingsRow
@@ -318,6 +328,11 @@ function WhatsAppConfirmationNote({
 }: {
   eligibility: WhatsAppConfirmationEligibility;
 }) {
+  // The feature itself is paused (see feature-flag.ts) and the plan
+  // that would unlock it is marked "coming soon" — pointing someone
+  // at an unpurchasable plan for a feature that doesn't send yet
+  // would be actively misleading.
+  if (!isWhatsAppSendingEnabled()) return null;
   if (eligibility.planIncludesFeature && eligibility.subscriptionActive) {
     return null;
   }

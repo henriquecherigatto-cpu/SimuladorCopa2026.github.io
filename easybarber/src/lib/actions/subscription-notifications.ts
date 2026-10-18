@@ -2,6 +2,7 @@ import "server-only";
 import { differenceInCalendarDays, format } from "date-fns";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import { getWhatsAppProvider } from "@/lib/whatsapp/provider";
+import { isWhatsAppSendingEnabled } from "@/lib/whatsapp/feature-flag";
 import { todayInAppTimezone } from "@/lib/utils";
 
 /**
@@ -19,6 +20,8 @@ import { todayInAppTimezone } from "@/lib/utils";
  * uses), not to the platform's support line and not to any customer.
  */
 export async function notifyCompanyEnteringGracePeriod(companyId: string): Promise<void> {
+  if (!isWhatsAppSendingEnabled()) return;
+
   const provider = await getWhatsAppProvider(companyId);
   if (!provider.isConfigured("subscription_grace_reminder")) return;
 
