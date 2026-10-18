@@ -29,6 +29,10 @@ import { Button } from "@/components/ui/Button";
 import { Alert } from "@/components/ui/Alert";
 import { Switch } from "@/components/ui/Switch";
 import { updateCompanySettings, updateBusinessHours } from "@/lib/actions/companies";
+import type { WhatsAppConnectionStatus } from "@/lib/actions/whatsapp-connection";
+import { WhatsAppConnectionModal } from "@/components/configuracoes/WhatsAppConnectionModal";
+import { BusinessHoursFields } from "@/components/shared/BusinessHoursFields";
+import { isWhatsAppSendingEnabled } from "@/lib/whatsapp/feature-flag";
 import { WEEKDAY_LABELS } from "@/lib/utils";
 import type { BusinessHours } from "@/types";
 
@@ -71,6 +75,7 @@ type SectionKey =
   | "hours"
   | "preferences"
   | "notifications"
+  | "whatsapp"
   | "security"
   | "help";
 
@@ -79,22 +84,32 @@ interface WhatsAppConfirmationEligibility {
   subscriptionActive: boolean;
 }
 
+const WHATSAPP_CONNECTION_SUBTITLE: Record<WhatsAppConnectionStatus["status"], string> = {
+  disconnected: "Nenhuma conta conectada",
+  connecting: "Conectando…",
+  connected: "Conectado",
+  error: "Erro na conexão — toque para ver detalhes",
+};
+
 export function ConfiguracoesPageClient({
   company: initialCompany,
   businessHours: initialBusinessHours,
   canManage,
   whatsappConfirmation,
+  whatsappConnection: initialWhatsappConnection,
 }: {
   company: CompanyRow;
   businessHours: BusinessHoursRow[];
   canManage: boolean;
   whatsappConfirmation: WhatsAppConfirmationEligibility;
+  whatsappConnection: WhatsAppConnectionStatus;
 }) {
   const router = useRouter();
   const [company, setCompany] = React.useState(initialCompany);
   const [hours, setHours] = React.useState<BusinessHours[]>(() =>
     toDisplayHours(initialBusinessHours),
   );
+  const [whatsappConnection, setWhatsappConnection] = React.useState(initialWhatsappConnection);
   const [open, setOpen] = React.useState<SectionKey | null>(null);
   const [savedMessage, setSavedMessage] = React.useState<string | null>(null);
 
@@ -144,6 +159,23 @@ export function ConfiguracoesPageClient({
           subtitle="Lembretes de agendamento"
           onClick={() => setOpen("notifications")}
         />
+        {isWhatsAppSendingEnabled() ? (
+          canManage && (
+            <SettingsRow
+              icon={MessageCircle}
+              title="Integração com WhatsApp"
+              subtitle={WHATSAPP_CONNECTION_SUBTITLE[whatsappConnection.status]}
+              onClick={() => setOpen("whatsapp")}
+            />
+          )
+        ) : (
+          <SettingsRow
+            icon={MessageCircle}
+            title="Integração com WhatsApp"
+            subtitle="Confirmação automática de agendamento"
+            disabled
+          />
+        )}
         <SettingsRow
           icon={Palette}
           title="Personalização"
@@ -194,6 +226,12 @@ export function ConfiguracoesPageClient({
         open={open === "notifications"}
         onClose={() => setOpen(null)}
         onSave={() => flashSaved("Preferências de notificação atualizadas.")}
+      />
+      <WhatsAppConnectionModal
+        open={open === "whatsapp"}
+        onClose={() => setOpen(null)}
+        initialStatus={whatsappConnection}
+        onStatusChange={setWhatsappConnection}
       />
       <SecurityModal
         open={open === "security"}
@@ -291,6 +329,11 @@ function WhatsAppConfirmationNote({
 }: {
   eligibility: WhatsAppConfirmationEligibility;
 }) {
+  // The feature itself is paused (see feature-flag.ts) and the plan
+  // that would unlock it is marked "coming soon" — pointing someone
+  // at an unpurchasable plan for a feature that doesn't send yet
+  // would be actively misleading.
+  if (!isWhatsAppSendingEnabled()) return null;
   if (eligibility.planIncludesFeature && eligibility.subscriptionActive) {
     return null;
   }
@@ -440,10 +483,6 @@ function BusinessHoursFormFields({
   const [error, setError] = React.useState<string | null>(null);
   const [submitting, setSubmitting] = React.useState(false);
 
-  const update = (day: string, patch: Partial<BusinessHours>) => {
-    setDraft((prev) => prev.map((h) => (h.day === day ? { ...h, ...patch } : h)));
-  };
-
   const onSubmit = async () => {
     setError(null);
     setSubmitting(true);
@@ -459,39 +498,7 @@ function BusinessHoursFormFields({
   return (
     <div className="flex flex-col gap-3">
       {error && <Alert variant="error">{error}</Alert>}
-      {draft.map((h) => (
-        <div
-          key={h.day}
-          className="flex flex-wrap items-center gap-3 rounded-xl border border-black/5 px-3 py-2.5"
-        >
-          <Switch
-            checked={h.open}
-            onChange={(checked) => update(h.day, { open: checked })}
-          />
-          <span className="w-28 text-sm font-medium text-brand-graphite">
-            {h.day}
-          </span>
-          {h.open ? (
-            <div className="flex items-center gap-1.5 text-sm">
-              <input
-                type="time"
-                value={h.start}
-                onChange={(e) => update(h.day, { start: e.target.value })}
-                className="rounded-lg border border-black/10 px-2 py-1 text-sm"
-              />
-              <span className="text-brand-graphite/40">–</span>
-              <input
-                type="time"
-                value={h.end}
-                onChange={(e) => update(h.day, { end: e.target.value })}
-                className="rounded-lg border border-black/10 px-2 py-1 text-sm"
-              />
-            </div>
-          ) : (
-            <span className="text-sm text-brand-graphite/40">Fechado</span>
-          )}
-        </div>
-      ))}
+      <BusinessHoursFields hours={draft} onChange={setDraft} />
       <Button fullWidth loading={submitting} onClick={onSubmit}>
         Salvar horários
       </Button>

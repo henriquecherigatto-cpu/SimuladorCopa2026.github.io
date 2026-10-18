@@ -18,7 +18,7 @@ export default async function PlanoPage() {
         .single(),
       supabase
         .from("plans")
-        .select("id, name, price_cents, features")
+        .select("id, name, price_cents, features, coming_soon")
         .eq("active", true)
         .order("price_cents", { ascending: true }),
       supabase

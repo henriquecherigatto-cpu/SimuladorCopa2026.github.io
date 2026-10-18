@@ -30,6 +30,7 @@ interface PlanRow {
   name: string;
   price_cents: number;
   features: unknown;
+  coming_soon?: boolean;
 }
 
 interface SubscriptionRow {
@@ -313,7 +314,11 @@ export function PlanoPageClient({
               >
                 <div className="flex items-center justify-between">
                   <p className="text-sm font-semibold text-brand-graphite">{plan.name}</p>
-                  {isCurrent && <Badge variant="brand">Atual</Badge>}
+                  {isCurrent ? (
+                    <Badge variant="brand">Atual</Badge>
+                  ) : (
+                    plan.coming_soon && <Badge variant="neutral">Em desenvolvimento</Badge>
+                  )}
                 </div>
                 <p className="text-2xl font-bold text-brand-graphite">
                   {formatCurrencyBRL(plan.price_cents / 100)}
@@ -327,26 +332,33 @@ export function PlanoPageClient({
                     </li>
                   ))}
                 </ul>
-                {!isCurrent && canManage && (
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    loading={checkoutLoadingPlanId === plan.id}
-                    disabled={checkoutLoadingPlanId !== null && !canStartCheckout}
-                    onClick={() =>
-                      canStartCheckout
-                        ? startCheckout(plan.id)
-                        : window.open(
-                            supportLink(
-                              `Olá! Quero trocar o plano da minha barbearia para ${plan.name}.`,
-                            ),
-                            "_blank",
-                          )
-                    }
-                  >
-                    Mudar para este plano
-                  </Button>
-                )}
+                {!isCurrent &&
+                  (plan.coming_soon ? (
+                    <p className="text-center text-xs text-brand-graphite/50">
+                      Em breve disponível para contratação.
+                    </p>
+                  ) : (
+                    canManage && (
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        loading={checkoutLoadingPlanId === plan.id}
+                        disabled={checkoutLoadingPlanId !== null && !canStartCheckout}
+                        onClick={() =>
+                          canStartCheckout
+                            ? startCheckout(plan.id)
+                            : window.open(
+                                supportLink(
+                                  `Olá! Quero trocar o plano da minha barbearia para ${plan.name}.`,
+                                ),
+                                "_blank",
+                              )
+                        }
+                      >
+                        Mudar para este plano
+                      </Button>
+                    )
+                  ))}
               </div>
             );
           })}

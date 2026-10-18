@@ -100,12 +100,33 @@ export function hhmmToMinutes(hhmm: string): number {
  * prefixed when missing. Assumes a Brazilian number since that's the
  * only market this app serves today. Shared by buildWhatsAppLink()
  * (a wa.me link, for a human to click) and the WhatsApp provider
- * adapter (src/lib/whatsapp/twilio.ts, an actual API call) so both
- * normalize a visitor-typed phone number the exact same way.
+ * adapter (src/lib/whatsapp/meta-cloud-api.ts, an actual API call) so
+ * both normalize a visitor-typed phone number the exact same way.
  */
 export function toWhatsAppDigits(phone: string): string {
   const digits = phone.replace(/\D/g, "");
   return digits.startsWith("55") ? digits : `55${digits}`;
+}
+
+/**
+ * Formats progressively as the visitor types, into the standard
+ * Brazilian mobile shape "(DD) D DDDD-DDDD" (11 digits: 2-digit area
+ * code + the mobile "9" + 4+4 subscriber number) — e.g. public
+ * booking's own phone field, so what gets stored is consistent
+ * regardless of how each visitor happens to type it (with or without
+ * punctuation, spaces, a leading country code digit, …). Caps at 11
+ * digits; anything beyond that is simply not appended, rather than
+ * rejected outright — this is a formatter, not a validator.
+ */
+export function formatBrazilianPhoneInput(value: string): string {
+  const digits = value.replace(/\D/g, "").slice(0, 11);
+  if (digits.length === 0) return "";
+  if (digits.length <= 2) return `(${digits}`;
+  if (digits.length <= 3) return `(${digits.slice(0, 2)}) ${digits.slice(2)}`;
+  if (digits.length <= 7) {
+    return `(${digits.slice(0, 2)}) ${digits.slice(2, 3)} ${digits.slice(3)}`;
+  }
+  return `(${digits.slice(0, 2)}) ${digits.slice(2, 3)} ${digits.slice(3, 7)}-${digits.slice(7)}`;
 }
 
 /**

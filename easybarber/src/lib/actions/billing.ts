@@ -55,11 +55,17 @@ export async function createCheckoutSession(
 
     const { data: plan, error: planError } = await supabase
       .from("plans")
-      .select("id, name, price_cents, active")
+      .select("id, name, price_cents, active, coming_soon")
       .eq("id", planId)
       .eq("active", true)
       .single();
     if (planError || !plan) throw new Error("Plano não encontrado.");
+    // Enforced here too, not just by hiding/disabling the button in
+    // the UI — a stale link or a direct call must never start a real
+    // checkout for a plan that isn't actually sellable yet.
+    if (plan.coming_soon) {
+      throw new Error("Esse plano ainda não está disponível para contratação.");
+    }
 
     const email = profile?.email ?? "";
     if (!email) throw new Error("Não foi possível identificar o e-mail da conta.");

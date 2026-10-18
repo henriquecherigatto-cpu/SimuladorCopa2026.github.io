@@ -1,12 +1,8 @@
 "use server";
 
-import { formatInTimeZone } from "date-fns-tz";
-import { ptBR } from "date-fns/locale";
 import { createClient } from "@/lib/supabase/server";
-import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import type { ActionResult } from "@/lib/actions/action-result";
-import { getWhatsAppProvider } from "@/lib/whatsapp/provider";
-import { APP_TIMEZONE } from "@/lib/utils";
+import { sendBookingConfirmation } from "@/lib/whatsapp/send-booking-confirmation";
 
 /**
  * The public, no-login booking flow (/agendar/<slug>). Every call
@@ -84,7 +80,7 @@ function friendlyPublicError(error: unknown): string {
     return "Informe seu nome.";
   }
   if (message.includes("phone is required")) {
-    return "Informe seu telefone.";
+    return "Informe um telefone válido com DDD.";
   }
   if (message.includes("not found")) {
     return "Barbearia não encontrada.";
@@ -227,7 +223,7 @@ export async function createPublicBooking(
 ): Promise<ActionResult<PublicBookingResult>> {
   try {
     if (!input.customerName.trim()) throw new Error("name is required");
-    if (!input.customerPhone.trim()) throw new Error("phone is required");
+    if (input.customerPhone.replace(/\D/g, "").length < 11) throw new Error("phone is required");
     if (!input.serviceId || !input.professionalId || !input.date || !input.startTime) {
       throw new Error("Selecione serviço, profissional, data e horário.");
     }
@@ -271,86 +267,6 @@ export async function createPublicBooking(
     return { ok: true, data: result };
   } catch (error) {
     return { ok: false, error: friendlyPublicError(error) };
-  }
-}
-
-/**
- * The variable order here (1..5) must match the approved WhatsApp
- * Content Template's own {{1}}..{{5}} placeholders exactly — see
- * docs/whatsapp-integration.md for the template text this is built
- * for. Changing one side without the other either sends the wrong
- * values into the right slots, or fails outright.
- */
-async function sendBookingConfirmation(
-  customerPhone: string,
-  booking: PublicBookingResult,
-): Promise<void> {
-  const provider = getWhatsAppProvider();
-  if (!provider.isConfigured("booking_confirmation")) return;
-  if (!booking.found || !booking.startsAt) return;
-
-  // The automated confirmation is a Profissional-tier (R$49,90) perk,
-  // available only while the subscription is actually ativa — not just
-  // on the right plan, so a pendente/tolerancia/suspensa/cancelada
-  // company never gets a message either, even if it's Profissional.
-  // See whatsapp_confirmation_allowed() in
-  // 20260101000034_whatsapp_confirmation_subscription_gate.sql, which
-  // derives company_id from the (server-trusted) appointment id itself
-  // rather than trusting a second, independently-spoofable parameter.
-  // subscriptions/plans are owner-only under RLS (subscriptions_select),
-  // so this needs the service-role client — the visitor's own booking
-  // session has no read access to them. Any failure here — a thrown
-  // error, or the RPC returning anything but exactly `true` — must
-  // deny the send, never allow it by default.
-  const serviceRoleClient = createServiceRoleClient();
-
-  const { data: eligible, error: eligibilityError } = await serviceRoleClient.rpc(
-    "whatsapp_confirmation_allowed",
-    { p_appointment_id: booking.id },
-  );
-  if (eligibilityError || eligible !== true) return;
-
-  const cancelUrl = `${process.env.NEXT_PUBLIC_APP_URL}/cancelar/${booking.cancelToken}`;
-
-  // formatInTimeZone (not a bare format(new Date(...))) because this
-  // runs on the server, whose own local timezone (UTC on Vercel) has
-  // nothing to do with the customer's — see
-  // supabase/migrations/20260101000022_fix_appointment_timezone.sql
-  // for the same mistake made on the storage side.
-  const result = await provider.sendMessage({
-    to: customerPhone,
-    template: "booking_confirmation",
-    templateVariables: {
-      "1": booking.companyName ?? "",
-      "2": booking.serviceName ?? "",
-      "3": booking.professionalName ?? "",
-      "4": formatInTimeZone(booking.startsAt, APP_TIMEZONE, "EEEE, d 'de' MMMM 'às' HH:mm", {
-        locale: ptBR,
-      }),
-      "5": cancelUrl,
-    },
-  });
-  if (!result.ok) {
-    console.error(`WhatsApp confirmation send failed (${provider.name}):`, result.error);
-  }
-
-  // Best-effort bookkeeping for the admin dashboard (how many
-  // messages each company sends, and their cost) — log_whatsapp_message()
-  // is service_role-only (see 20260101000023_admin_analytics.sql), so
-  // this needs the service-role client even though the booking itself
-  // ran under the visitor's own anon session. A logging failure must
-  // never surface as a booking error, same as the send itself. Reuses
-  // the same serviceRoleClient created above for the plan check.
-  try {
-    await serviceRoleClient.rpc("log_whatsapp_message", {
-      p_appointment_id: booking.id,
-      p_status: result.ok ? "sent" : "failed",
-      p_provider: provider.name,
-      p_provider_message_id: result.ok ? result.providerMessageId : undefined,
-      p_error: result.ok ? undefined : result.error,
-    });
-  } catch (error) {
-    console.error("Failed to log WhatsApp message for the admin dashboard:", error);
   }
 }
 

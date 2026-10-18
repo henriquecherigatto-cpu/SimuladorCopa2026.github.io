@@ -29,9 +29,9 @@ export function StatCard({
           <span className="break-words text-lg font-bold leading-tight text-brand-graphite sm:text-2xl">
             {value}
           </span>
-          <span className="truncate text-sm text-brand-graphite/60">{label}</span>
+          <span className="break-words text-sm leading-tight text-brand-graphite/60">{label}</span>
           {hint && (
-            <span className="truncate text-xs text-brand-graphite/40">{hint}</span>
+            <span className="break-words text-xs leading-tight text-brand-graphite/40">{hint}</span>
           )}
         </div>
         <div
