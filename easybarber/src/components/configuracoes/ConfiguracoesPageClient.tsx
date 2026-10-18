@@ -31,6 +31,7 @@ import { Switch } from "@/components/ui/Switch";
 import { updateCompanySettings, updateBusinessHours } from "@/lib/actions/companies";
 import type { WhatsAppConnectionStatus } from "@/lib/actions/whatsapp-connection";
 import { WhatsAppConnectionModal } from "@/components/configuracoes/WhatsAppConnectionModal";
+import { BusinessHoursFields } from "@/components/shared/BusinessHoursFields";
 import { isWhatsAppSendingEnabled } from "@/lib/whatsapp/feature-flag";
 import { WEEKDAY_LABELS } from "@/lib/utils";
 import type { BusinessHours } from "@/types";
@@ -482,10 +483,6 @@ function BusinessHoursFormFields({
   const [error, setError] = React.useState<string | null>(null);
   const [submitting, setSubmitting] = React.useState(false);
 
-  const update = (day: string, patch: Partial<BusinessHours>) => {
-    setDraft((prev) => prev.map((h) => (h.day === day ? { ...h, ...patch } : h)));
-  };
-
   const onSubmit = async () => {
     setError(null);
     setSubmitting(true);
@@ -501,39 +498,7 @@ function BusinessHoursFormFields({
   return (
     <div className="flex flex-col gap-3">
       {error && <Alert variant="error">{error}</Alert>}
-      {draft.map((h) => (
-        <div
-          key={h.day}
-          className="flex flex-wrap items-center gap-3 rounded-xl border border-black/5 px-3 py-2.5"
-        >
-          <Switch
-            checked={h.open}
-            onChange={(checked) => update(h.day, { open: checked })}
-          />
-          <span className="w-28 text-sm font-medium text-brand-graphite">
-            {h.day}
-          </span>
-          {h.open ? (
-            <div className="flex items-center gap-1.5 text-sm">
-              <input
-                type="time"
-                value={h.start}
-                onChange={(e) => update(h.day, { start: e.target.value })}
-                className="rounded-lg border border-black/10 px-2 py-1 text-sm"
-              />
-              <span className="text-brand-graphite/40">–</span>
-              <input
-                type="time"
-                value={h.end}
-                onChange={(e) => update(h.day, { end: e.target.value })}
-                className="rounded-lg border border-black/10 px-2 py-1 text-sm"
-              />
-            </div>
-          ) : (
-            <span className="text-sm text-brand-graphite/40">Fechado</span>
-          )}
-        </div>
-      ))}
+      <BusinessHoursFields hours={draft} onChange={setDraft} />
       <Button fullWidth loading={submitting} onClick={onSubmit}>
         Salvar horários
       </Button>

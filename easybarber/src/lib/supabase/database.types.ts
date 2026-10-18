@@ -280,6 +280,7 @@ export type Database = {
           created_by: string;
           id: string;
           name: string;
+          onboarding_step: number;
           phone: string;
           slug: string;
           updated_at: string;
@@ -293,6 +294,7 @@ export type Database = {
           created_by: string;
           id?: string;
           name: string;
+          onboarding_step?: number;
           phone: string;
           slug: string;
           updated_at?: string;
@@ -305,6 +307,7 @@ export type Database = {
           created_by?: string;
           id?: string;
           name?: string;
+          onboarding_step?: number;
           phone?: string;
           slug?: string;
           updated_at?: string;
@@ -1023,6 +1026,10 @@ export type Database = {
       admin_update_company_plan: {
         Args: { p_company_id: string; p_plan_id: string };
         Returns: undefined;
+      };
+      advance_onboarding_step: {
+        Args: { p_company_id: string; p_expected_step: number };
+        Returns: boolean;
       };
       admin_update_plan_price: {
         Args: { p_plan_id: string; p_price_cents: number };

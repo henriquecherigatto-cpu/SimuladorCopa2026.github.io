@@ -4,6 +4,7 @@ import { differenceInCalendarDays, format } from "date-fns";
 import { AppShell } from "@/components/layout/AppShell";
 import type { SubscriptionAlert } from "@/components/layout/SubscriptionStatusModal";
 import { createClient } from "@/lib/supabase/server";
+import { onboardingStepRoute } from "@/lib/onboarding";
 import { todayInAppTimezone } from "@/lib/utils";
 
 const ROLE_LABELS: Record<string, string> = {
@@ -56,17 +57,25 @@ export default async function AppGroupLayout({
   // admin with no company), and only an owner can act on it — a
   // professional has no reason to see a payment warning they can't
   // do anything about. In practice this also means a 'pendente'
-  // company can only ever be caught below for its owner: a
-  // professional member can't exist yet for a company that hasn't
-  // gotten past this very gate (adding one happens from inside the
-  // app, which this gate blocks until the first payment lands).
+  // company (or one still mid-onboarding, below) can only ever be
+  // caught here for its owner: a professional member can't exist yet
+  // for a company that hasn't gotten past every gate below (adding
+  // one happens from inside the app, which this gate blocks until
+  // onboarding_step reaches 3).
   let subscriptionAlert: SubscriptionAlert | null = null;
   if (membership?.role === "owner") {
-    const { data: subscription } = await supabase
-      .from("subscriptions")
-      .select("status, grace_period_ends_at")
-      .eq("company_id", membership.company_id)
-      .maybeSingle();
+    const [{ data: subscription }, { data: company }] = await Promise.all([
+      supabase
+        .from("subscriptions")
+        .select("status, grace_period_ends_at")
+        .eq("company_id", membership.company_id)
+        .maybeSingle(),
+      supabase
+        .from("companies")
+        .select("onboarding_step")
+        .eq("id", membership.company_id)
+        .single(),
+    ]);
 
     // 'pendente' means the first payment was never completed — unlike
     // 'tolerancia'/'suspensa' below, access was never actually granted
@@ -75,6 +84,15 @@ export default async function AppGroupLayout({
     // /onboarding/pagamento for the checkout UI.
     if (subscription?.status === "pendente") {
       redirect("/onboarding/pagamento");
+    }
+
+    // Past payment, still short of horários/serviços/profissionais —
+    // a ONE-TIME gate (see 20260101000038_onboarding_steps.sql):
+    // never re-checked once onboarding_step reaches 3, even if the
+    // company later has zero services again (e.g. reorganizing its
+    // catalog during normal operation).
+    if (company && company.onboarding_step < 3) {
+      redirect(onboardingStepRoute(company.onboarding_step));
     }
 
     if (subscription?.status === "suspensa") {
