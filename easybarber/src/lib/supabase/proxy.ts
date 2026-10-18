@@ -11,18 +11,25 @@ const PUBLIC_ROUTES = ["/", "/login", "/cadastro", "/recuperar-senha"];
 // /cancelar/<token> is the cancel-by-link page a booking confirmation
 // message points to; the owner should also be able to open either
 // while signed in (e.g. to test it) without being redirected away.
-// /atualizar-senha needs this same treatment for a different reason:
-// the password-recovery email's link lands here with a ?code= that
-// the BROWSER exchanges for a session client-side (detectSessionInUrl
-// in src/lib/supabase/client.ts) — this request arrives with no
-// session cookie yet, so treating it as an ordinary protected route
-// would redirect to /login and strip the code before that exchange
-// ever runs. And once the exchange DOES complete, the visitor is now
-// "authenticated" by this middleware's own check, so leaving it out
-// of PUBLIC_ROUTES matters too — that list bounces an authenticated
-// visitor straight to /dashboard, which here would mean away from the
-// password form before they ever get to submit it.
-const ALWAYS_ACCESSIBLE_PREFIXES = ["/agendar/", "/cancelar/", "/atualizar-senha"];
+// /atualizar-senha and /onboarding/confirmado need this same
+// treatment for a different reason: their emails' links land here
+// with a ?code= that the BROWSER exchanges for a session client-side
+// (detectSessionInUrl in src/lib/supabase/client.ts) — this request
+// arrives with no session cookie yet, so treating either as an
+// ordinary protected route would redirect to /login and strip the
+// code before that exchange ever runs. And once the exchange DOES
+// complete, the visitor is now "authenticated" by this middleware's
+// own check, so leaving them out of PUBLIC_ROUTES matters too — that
+// list bounces an authenticated visitor straight to /dashboard, which
+// here would mean away from the password form, or away from
+// /onboarding/confirmado before it gets to create the barbearia from
+// the signup e-mail's metadata, before either ever gets to run.
+const ALWAYS_ACCESSIBLE_PREFIXES = [
+  "/agendar/",
+  "/cancelar/",
+  "/atualizar-senha",
+  "/onboarding/confirmado",
+];
 
 /**
  * Refreshes the Supabase session cookie on every request (so it never

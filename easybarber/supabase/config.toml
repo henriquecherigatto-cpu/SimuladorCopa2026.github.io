@@ -165,15 +165,21 @@ site_url = "http://127.0.0.1:3000"
 # just a missing /atualizar-senha, or the wrong host spelling) isn't
 # rejected with an error; GoTrue silently substitutes site_url instead,
 # which looks fine right up until the reset email's link lands on the
-# wrong page with no session. ForgotPasswordForm.tsx builds its
-# redirectTo from window.location.origin, which during local dev is
-# localhost:3000 (not 127.0.0.1, despite site_url above) — both host
-# spellings are listed, each with the real target path, so the
-# redirect is never silently swapped out depending on which host the
-# browser happens to be on.
+# wrong page with no session. ForgotPasswordForm.tsx and SignupForm.tsx
+# both build their redirect from window.location.origin, which during
+# local dev is localhost:3000 (not 127.0.0.1, despite site_url above) —
+# both host spellings are listed, each with the real target path, so
+# the redirect is never silently swapped out depending on which host
+# the browser happens to be on. THE PRODUCTION Supabase project needs
+# the equivalent of both of these URLs (its own real domain, not these
+# local ones) added under Authentication -> URL Configuration ->
+# Redirect URLs in its dashboard — this file only configures the local
+# stack used for testing.
 additional_redirect_urls = [
   "http://127.0.0.1:3000/atualizar-senha",
   "http://localhost:3000/atualizar-senha",
+  "http://127.0.0.1:3000/onboarding/confirmado",
+  "http://localhost:3000/onboarding/confirmado",
 ]
 # How long tokens are valid for, in seconds. Defaults to 3600 (1 hour), maximum 604,800 (1 week).
 jwt_expiry = 3600

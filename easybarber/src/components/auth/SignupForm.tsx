@@ -51,7 +51,21 @@ export function SignupForm() {
     const { data, error } = await supabase.auth.signUp({
       email: values.email,
       password: values.password,
-      options: { data: { full_name: values.ownerName } },
+      options: {
+        // company_* fields are stored here so the /onboarding/confirmado
+        // page can create the barbearia automatically once the e-mail
+        // is confirmed — the RPC below can't run until THEN if
+        // confirmations are required (no session exists yet), and
+        // without this the owner would have to type everything again.
+        data: {
+          full_name: values.ownerName,
+          company_name: values.companyName,
+          company_phone: values.phone,
+          company_cnpj: values.cnpj,
+          company_address: values.address || undefined,
+        },
+        emailRedirectTo: `${window.location.origin}/onboarding/confirmado`,
+      },
     });
 
     if (error) {
@@ -86,8 +100,13 @@ export function SignupForm() {
       // E-mail confirmation is required by the Supabase project's
       // auth settings — the user isn't signed in yet, so we can't
       // call create_company_with_owner() (it needs auth.uid()). The
-      // barbearia is created on their first real login instead — see
-      // src/app/onboarding/empresa.
+      // company_* fields above are stored in user_metadata so
+      // /onboarding/confirmado — where emailRedirectTo above sends
+      // the confirmation link — can create the barbearia automatically
+      // once the e-mail is confirmed and a session exists, without
+      // asking for any of this again. /onboarding/empresa is only a
+      // fallback for accounts that somehow reach the app with no
+      // metadata to work with.
       setPendingConfirmation(true);
       return;
     }
