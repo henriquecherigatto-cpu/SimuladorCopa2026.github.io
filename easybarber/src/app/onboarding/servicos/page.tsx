@@ -22,20 +22,12 @@ export default async function OnboardingServicosPage() {
   if (!membership) redirect("/onboarding/empresa");
   if (membership.role !== "owner") redirect("/dashboard");
 
-  const [{ data: subscription }, { data: company }] = await Promise.all([
-    supabase
-      .from("subscriptions")
-      .select("status")
-      .eq("company_id", membership.company_id)
-      .maybeSingle(),
-    supabase
-      .from("companies")
-      .select("onboarding_step")
-      .eq("id", membership.company_id)
-      .single(),
-  ]);
+  const { data: company } = await supabase
+    .from("companies")
+    .select("onboarding_step")
+    .eq("id", membership.company_id)
+    .single();
 
-  if (subscription?.status === "pendente") redirect("/onboarding/pagamento");
   if (company && company.onboarding_step !== 1) {
     redirect(onboardingStepRoute(company.onboarding_step));
   }

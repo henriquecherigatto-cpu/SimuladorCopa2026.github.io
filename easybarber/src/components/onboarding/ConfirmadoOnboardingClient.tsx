@@ -7,6 +7,7 @@ import { Logo } from "@/components/Logo";
 import { Alert } from "@/components/ui/Alert";
 import { Button } from "@/components/ui/Button";
 import { createClient } from "@/lib/supabase/client";
+import { onboardingStepRoute } from "@/lib/onboarding";
 
 /**
  * Lands here from the signup confirmation e-mail's link
@@ -82,7 +83,7 @@ export function ConfirmadoOnboardingClient() {
         return;
       }
 
-      router.push("/onboarding/pagamento");
+      router.push(onboardingStepRoute(0));
       router.refresh();
     };
 

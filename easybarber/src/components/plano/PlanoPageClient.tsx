@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { useRouter } from "next/navigation";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { formatInTimeZone } from "date-fns-tz";
@@ -14,7 +15,27 @@ import { Modal } from "@/components/ui/Modal";
 import { WhatsAppIcon } from "@/components/icons/WhatsAppIcon";
 import { SUPPORT_WHATSAPP_NUMBER } from "@/components/layout/SupportWhatsAppButton";
 import { createCheckoutSession, getOpenInvoiceLink } from "@/lib/actions/billing";
+import { useRealtimeTable } from "@/lib/hooks/useRealtimeTable";
 import { APP_TIMEZONE, buildWhatsAppLink, cn, formatCurrencyBRL } from "@/lib/utils";
+
+/**
+ * Opens the Asaas invoice in its own tab instead of navigating this
+ * one away to it — same reasoning and pattern as
+ * ConfirmadoOnboardingClient.tsx's onboarding equivalent used to have
+ * (before payment moved here): Asaas's hosted Pix page never
+ * redirects back on its own, so a full-page redirect would strand the
+ * owner there. Opened synchronously, before the async checkout-session
+ * call, so the browser still attributes it to the click (a popup
+ * opened after an await is commonly blocked). Falls back to
+ * navigating this tab if the popup was blocked anyway.
+ */
+function openInvoiceTab(url: string, popup: Window | null) {
+  if (popup && !popup.closed) {
+    popup.location.href = url;
+  } else {
+    window.location.href = url;
+  }
+}
 
 interface OpenInvoice {
   url: string;
@@ -79,18 +100,22 @@ function formatDate(isoDate: string): string {
 }
 
 export function PlanoPageClient({
+  companyId,
   subscription,
   plans,
   billingEvents,
   canManage,
 }: {
+  companyId: string;
   subscription: SubscriptionRow;
   plans: PlanRow[];
   billingEvents: BillingEventRow[];
   canManage: boolean;
 }) {
+  const router = useRouter();
   const [checkoutError, setCheckoutError] = React.useState<string | null>(null);
   const [checkoutLoadingPlanId, setCheckoutLoadingPlanId] = React.useState<string | null>(null);
+  const [awaitingPayment, setAwaitingPayment] = React.useState(false);
   const [cancelOpen, setCancelOpen] = React.useState(false);
   const [openInvoice, setOpenInvoice] = React.useState<OpenInvoice | null>(null);
   const [invoiceState, setInvoiceState] = React.useState<"idle" | "loading" | "found" | "none" | "error">(
@@ -115,14 +140,27 @@ export function PlanoPageClient({
   const startCheckout = async (planId: string) => {
     setCheckoutError(null);
     setCheckoutLoadingPlanId(planId);
+    const popup = window.open("", "_blank");
     const result = await createCheckoutSession(planId);
     if (!result.ok) {
+      popup?.close();
       setCheckoutLoadingPlanId(null);
       setCheckoutError(result.error);
       return;
     }
-    window.location.href = result.data.url;
+    openInvoiceTab(result.data.url, popup);
+    setCheckoutLoadingPlanId(null);
+    setAwaitingPayment(true);
   };
+
+  // The webhook confirms payment asynchronously — the owner may well
+  // still be on this tab (the Pix opened in a new one). Once
+  // subscriptions changes, just refresh this Server Component: the
+  // status badge, "Assinar agora" button and billing history all
+  // update on their own from the reloaded data, no special redirect
+  // needed (unlike the onboarding wizard, this page isn't a step to
+  // move past).
+  useRealtimeTable("subscriptions", `company_id=eq.${companyId}`, () => router.refresh());
 
   const supportLink = (message: string) => buildWhatsAppLink(SUPPORT_WHATSAPP_NUMBER, message);
 
@@ -150,6 +188,13 @@ export function PlanoPageClient({
         title="Plano e assinatura"
         description="Acompanhe sua assinatura e histórico de pagamentos."
       />
+
+      {awaitingPayment && canStartCheckout && (
+        <Alert variant="info" title="Aguardando confirmação do pagamento">
+          O Pix abriu em uma nova aba. Pague por lá — assim que for
+          confirmado, esta página atualiza sozinha, sem precisar recarregar.
+        </Alert>
+      )}
 
       {subscription.status === "tolerancia" && (
         <Alert variant="warning" title="Pagamento pendente">

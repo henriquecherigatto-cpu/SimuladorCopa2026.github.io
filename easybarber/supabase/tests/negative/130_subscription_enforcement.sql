@@ -18,11 +18,45 @@ where company_id = :'company_a_id'::uuid
   and action in ('subscription_status_changed', 'admin_granted_subscription_access');
 
 -- ---------------------------------------------------------------------
+-- 0. A 'pendente' subscription (never activated — see
+-- 20260101000041_pendente_blocks_bookings.sql) blocks a brand new
+-- appointment exactly like 'suspensa' does below — both paths. Company
+-- A is freshly reset to 'pendente' above, before section 1 moves it
+-- on to 'suspensa'.
+-- ---------------------------------------------------------------------
+select test.act_as(:'owner_a_id'::uuid);
+
+select test.assert_denied(
+  format(
+    $sql$insert into public.appointments (company_id, customer_id, professional_id, service_id, starts_at, ends_at, created_by)
+         values (%L, %L, %L, %L,
+           ((current_date + 2 + interval '11 hour') at time zone 'America/Sao_Paulo'),
+           ((current_date + 2 + interval '11 hour 45 minute') at time zone 'America/Sao_Paulo'),
+           %L)$sql$,
+    :'company_a_id', :'customer_a_id', :'professional_a_id', :'service_a_id', :'owner_a_id'
+  ),
+  'pendente subscription blocks a new appointment insert (owner path)'
+);
+
+select slug from public.companies where id = :'company_a_id'::uuid \gset pendentecompanya_
+
+select test.act_as_anon();
+
+select test.assert_denied(
+  format(
+    $sql$select public.create_public_appointment(%L, %L, %L, (current_date + 2), '11:15'::time, 'Cliente Teste', '19999990099')$sql$,
+    :'pendentecompanya_slug', :'service_a_id', :'professional_a_id'
+  ),
+  'pendente subscription blocks a new appointment via the public booking function'
+);
+
+-- ---------------------------------------------------------------------
 -- 1. A suspended subscription blocks a brand new appointment — both
 -- the owner/professional path (a direct insert, same shape
 -- createAppointment() performs) and the public booking path
 -- (create_public_appointment(), called as anon).
 -- ---------------------------------------------------------------------
+select test.act_as_superuser();
 update public.subscriptions set status = 'suspensa' where company_id = :'company_a_id'::uuid;
 
 select test.act_as(:'owner_a_id'::uuid);
@@ -165,11 +199,13 @@ select test.assert_denied(
 
 -- ---------------------------------------------------------------------
 -- 8. Cross-company isolation: none of the above touched company B.
+-- 'ativa' is company B's fixture baseline (000_fixtures.sql) — the
+-- point is that it's unchanged, not the particular value.
 -- ---------------------------------------------------------------------
 select test.act_as_superuser();
 select status, current_period_end is null as period_end_is_null
 from public.subscriptions where company_id = :'company_b_id'::uuid \gset subb_
-select test.assert(:'subb_status' = 'pendente', 'company B subscription status untouched');
+select test.assert(:'subb_status' = 'ativa', 'company B subscription status untouched');
 select test.assert(:'subb_period_end_is_null'::boolean, 'company B current_period_end untouched');
 
 select test.assert(true, 'subscription enforcement and admin manual control: insert-blocking, tolerancia pass-through, existing-appointment updates, access control and grant math all verified');

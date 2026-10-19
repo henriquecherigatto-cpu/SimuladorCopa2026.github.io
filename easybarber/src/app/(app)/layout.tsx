@@ -77,25 +77,22 @@ export default async function AppGroupLayout({
         .single(),
     ]);
 
-    // 'pendente' means the first payment was never completed — unlike
-    // 'tolerancia'/'suspensa' below, access was never actually granted
-    // in the first place, so this redirects away from the whole app
-    // shell instead of just showing a banner. See
-    // /onboarding/pagamento for the checkout UI.
-    if (subscription?.status === "pendente") {
-      redirect("/onboarding/pagamento");
-    }
-
-    // Past payment, still short of horários/serviços/profissionais —
-    // a ONE-TIME gate (see 20260101000038_onboarding_steps.sql):
-    // never re-checked once onboarding_step reaches 3, even if the
-    // company later has zero services again (e.g. reorganizing its
-    // catalog during normal operation).
+    // Still short of horários/serviços/profissionais — a ONE-TIME gate
+    // (see 20260101000038_onboarding_steps.sql): never re-checked once
+    // onboarding_step reaches 3, even if the company later has zero
+    // services again (e.g. reorganizing its catalog during normal
+    // operation). Payment is NOT part of this gate — a 'pendente'
+    // company sets up everything here same as a paid one; what stays
+    // locked until the first payment clears is creating a real
+    // appointment (enforced at the data layer — see
+    // 20260101000041_pendente_blocks_bookings.sql), not app access.
     if (company && company.onboarding_step < 3) {
       redirect(onboardingStepRoute(company.onboarding_step));
     }
 
-    if (subscription?.status === "suspensa") {
+    if (subscription?.status === "pendente") {
+      subscriptionAlert = { variant: "pendente" };
+    } else if (subscription?.status === "suspensa") {
       subscriptionAlert = { variant: "suspended" };
     } else if (subscription?.status === "tolerancia" && subscription.grace_period_ends_at) {
       const blockDate = new Date(`${subscription.grace_period_ends_at}T00:00:00`);

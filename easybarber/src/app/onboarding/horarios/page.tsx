@@ -38,25 +38,17 @@ export default async function OnboardingHorariosPage() {
     .maybeSingle();
 
   if (!membership) redirect("/onboarding/empresa");
-  // Same structural guarantee as /onboarding/pagamento's own fallback:
-  // a professional can't exist yet for a company that hasn't cleared
-  // every mandatory onboarding step — see (app)/layout.tsx.
+  // Same structural guarantee relied on throughout onboarding: a
+  // professional can't exist yet for a company that hasn't cleared
+  // every mandatory step — see (app)/layout.tsx.
   if (membership.role !== "owner") redirect("/dashboard");
 
-  const [{ data: subscription }, { data: company }] = await Promise.all([
-    supabase
-      .from("subscriptions")
-      .select("status")
-      .eq("company_id", membership.company_id)
-      .maybeSingle(),
-    supabase
-      .from("companies")
-      .select("onboarding_step")
-      .eq("id", membership.company_id)
-      .single(),
-  ]);
+  const { data: company } = await supabase
+    .from("companies")
+    .select("onboarding_step")
+    .eq("id", membership.company_id)
+    .single();
 
-  if (subscription?.status === "pendente") redirect("/onboarding/pagamento");
   if (company && company.onboarding_step !== 0) {
     redirect(onboardingStepRoute(company.onboarding_step));
   }

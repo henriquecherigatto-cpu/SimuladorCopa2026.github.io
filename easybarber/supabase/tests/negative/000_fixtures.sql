@@ -25,6 +25,18 @@ select public.create_company_with_owner('Barber 013', '19999990001', null, 'Rua 
 select test.act_as(:'owner_b_id'::uuid);
 select public.create_company_with_owner('Navalha Club', '19999990002', null, 'Rua B, 2') as company_b_id \gset
 
+-- Both fixture companies represent an already-operating, paying
+-- barbershop — not a brand-new, still-'pendente' signup (that case is
+-- exercised narrowly, and reset back afterwards, by
+-- 130_subscription_enforcement.sql's own section 0). Flipped to
+-- 'ativa' here, as superuser, before either company's baseline
+-- appointment is inserted below — see
+-- 20260101000041_pendente_blocks_bookings.sql, which would otherwise
+-- block those inserts the same way it blocks a real pendente company.
+select test.act_as_superuser();
+update public.subscriptions set status = 'ativa'
+where company_id in (:'company_a_id'::uuid, :'company_b_id'::uuid);
+
 -- Owner A builds out their company.
 select test.act_as(:'owner_a_id'::uuid);
 

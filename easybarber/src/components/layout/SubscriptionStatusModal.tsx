@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { AlertTriangle, Ban } from "lucide-react";
+import { AlertTriangle, Ban, CreditCard } from "lucide-react";
 import { Modal } from "@/components/ui/Modal";
 import { Button } from "@/components/ui/Button";
 import { WhatsAppIcon } from "@/components/icons/WhatsAppIcon";
@@ -9,16 +9,19 @@ import { SUPPORT_WHATSAPP_NUMBER } from "@/components/layout/SupportWhatsAppButt
 import { buildWhatsAppLink } from "@/lib/utils";
 
 export type SubscriptionAlert =
+  | { variant: "pendente" }
   | { variant: "suspended" }
   | { variant: "grace"; daysRemaining: number; blockDateLabel: string };
 
 /**
- * Owner-only popup for the two subscription states that affect
- * whether the barbershop can keep booking — rendered once per fresh
+ * Owner-only popup for the subscription states that affect whether
+ * the barbershop can take real bookings — rendered once per fresh
  * layout mount (see (app)/layout.tsx), not re-shown on every internal
  * navigation. Closable (this is a warning, not a hard lock: the
- * platform itself stays fully reachable either way), but reappears on
- * the next full page load/session while the underlying status holds.
+ * platform itself stays fully reachable either way — see
+ * 20260101000041_pendente_blocks_bookings.sql for what actually stays
+ * locked), but reappears on the next full page load/session while the
+ * underlying status holds.
  */
 export function SubscriptionStatusModal({ alert }: { alert: SubscriptionAlert | null }) {
   const [open, setOpen] = React.useState(!!alert);
@@ -49,7 +52,7 @@ export function SubscriptionStatusModal({ alert }: { alert: SubscriptionAlert | 
           )}
         </span>
 
-        {alert.variant === "suspended" ? (
+        {alert.variant === "suspended" && (
           <>
             <h2 className="text-base font-semibold text-brand-graphite">
               Acesso suspenso por falta de pagamento
@@ -61,7 +64,9 @@ export function SubscriptionStatusModal({ alert }: { alert: SubscriptionAlert | 
               fazer pelo link de agendamento — até a reativação.
             </p>
           </>
-        ) : (
+        )}
+
+        {alert.variant === "grace" && (
           <>
             <h2 className="text-base font-semibold text-brand-graphite">
               Pagamento não identificado
@@ -78,17 +83,38 @@ export function SubscriptionStatusModal({ alert }: { alert: SubscriptionAlert | 
           </>
         )}
 
+        {alert.variant === "pendente" && (
+          <>
+            <h2 className="text-base font-semibold text-brand-graphite">
+              Assinatura ainda não ativada
+            </h2>
+            <p className="text-sm text-brand-graphite/70">
+              Sua barbearia está configurada e pronta. Falta só ativar a
+              assinatura em <strong>Plano e assinatura</strong> —{" "}
+              <strong>novos agendamentos só ficam disponíveis</strong>, tanto
+              os seus quanto os dos seus clientes pelo link público, depois
+              que o primeiro pagamento for confirmado.
+            </p>
+          </>
+        )}
+
         <div className="mt-1 flex w-full flex-col gap-2">
-          <Button
-            href={whatsappHref}
-            target="_blank"
-            rel="noopener noreferrer"
-            fullWidth
-            className="gap-2"
-            icon={<WhatsAppIcon className="size-4" />}
-          >
-            Falar no WhatsApp
-          </Button>
+          {alert.variant === "pendente" ? (
+            <Button href="/plano" fullWidth icon={<CreditCard className="size-4" />}>
+              Ativar assinatura
+            </Button>
+          ) : (
+            <Button
+              href={whatsappHref}
+              target="_blank"
+              rel="noopener noreferrer"
+              fullWidth
+              className="gap-2"
+              icon={<WhatsAppIcon className="size-4" />}
+            >
+              Falar no WhatsApp
+            </Button>
+          )}
           <Button variant="ghost" fullWidth onClick={() => setOpen(false)}>
             Entendi
           </Button>

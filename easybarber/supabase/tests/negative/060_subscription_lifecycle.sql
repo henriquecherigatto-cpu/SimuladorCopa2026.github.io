@@ -299,9 +299,13 @@ select test.assert(:'sub9c_status' = 'cancelada', 'sweep never resurrects a canc
 -- B, which never received any billing event and was never swept
 -- (its own current_period_end/grace_period_ends_at stayed null
 -- throughout, so the sweep's WHERE clauses never match it either).
+-- 'ativa' is company B's own fixture baseline (000_fixtures.sql sets
+-- both companies 'ativa' right after creation, standing in for an
+-- already-operating barbershop) — the point here is that it's
+-- unchanged, not that it's any particular value.
 -- ---------------------------------------------------------------------
 select status from public.subscriptions where company_id = :'company_b_id'::uuid \gset subb_
-select test.assert(:'subb_status' = 'pendente', 'company B subscription untouched by any of company A''s simulated events');
+select test.assert(:'subb_status' = 'ativa', 'company B subscription untouched by any of company A''s simulated events');
 
 select count(*) as n from public.billing_events where company_id = :'company_b_id'::uuid \gset bevb_
 select test.assert_row_count(0, :bevb_n, 'no billing_events rows were ever written for company B');
@@ -324,8 +328,13 @@ where company_id = :'company_a_id'::uuid and action = 'subscription_status_chang
 -- for them.
 select test.assert(:auda_n = 7, format('expected 7 audit_logs rows for company A''s subscription transitions, got %s', :auda_n));
 
+-- Company B gets exactly 1, not 0: 000_fixtures.sql's single UPDATE
+-- flips BOTH companies pendente->ativa (so the "pendente->ativa (1)"
+-- transition counted for company A above fires company B's same
+-- row-level audit trigger too) — company B just never receives any
+-- further event after that, unlike company A's other 6.
 select count(*) as n from public.audit_logs
 where company_id = :'company_b_id'::uuid and action = 'subscription_status_changed' \gset audb_
-select test.assert_row_count(0, :audb_n, 'no subscription_status_changed audit entries for company B');
+select test.assert_row_count(1, :audb_n, 'exactly 1 subscription_status_changed audit entry for company B (the fixtures-level pendente->ativa flip, nothing more)');
 
 select test.assert(true, 'subscription lifecycle state machine: all transitions, idempotency, access control and isolation verified');

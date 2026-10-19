@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
 import { Alert } from "@/components/ui/Alert";
 import { createClient } from "@/lib/supabase/client";
+import { onboardingStepRoute } from "@/lib/onboarding";
 
 const schema = z.object({
   companyName: z.string().min(2, "Informe o nome da barbearia"),
@@ -45,9 +46,9 @@ export function CreateCompanyForm() {
       return;
     }
 
-    // Every new signup needs a first payment before using the app —
-    // see src/app/(app)/layout.tsx's pendente gate.
-    router.push("/onboarding/pagamento");
+    // Payment is no longer part of the mandatory sequence — see
+    // src/app/(app)/layout.tsx's onboarding_step gate.
+    router.push(onboardingStepRoute(0));
     router.refresh();
   };
 

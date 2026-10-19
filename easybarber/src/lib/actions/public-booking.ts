@@ -43,6 +43,11 @@ export interface PublicBookingPage {
     address: string | null;
     phone: string;
     whatsapp_number: string;
+    // null for suspensa/pendente's non-subscription edge case is not
+    // real (every company always has exactly one subscriptions row),
+    // but the left join in get_public_booking_page() makes it
+    // nullable in principle — treated as "not accepting" either way.
+    subscription_status: "pendente" | "ativa" | "tolerancia" | "suspensa" | "cancelada" | null;
   } | null;
   services: PublicService[];
   professionals: PublicProfessional[];
