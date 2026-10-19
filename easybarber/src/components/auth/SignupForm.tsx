@@ -11,6 +11,7 @@ import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
 import { Alert } from "@/components/ui/Alert";
 import { createClient } from "@/lib/supabase/client";
+import { onboardingStepRoute } from "@/lib/onboarding";
 
 const signupSchema = z
   .object({
@@ -130,9 +131,12 @@ export function SignupForm() {
 
     setSuccess(true);
     setTimeout(() => {
-      // Every new signup needs a first payment before using the app —
-      // see src/app/(app)/layout.tsx's pendente gate.
-      router.push("/onboarding/pagamento");
+      // Payment is no longer part of the mandatory sequence — see
+      // src/app/(app)/layout.tsx's onboarding_step gate. Every new
+      // signup starts configuring the barbearia right away; the
+      // owner activates the subscription later from Plano e
+      // assinatura, whenever they choose.
+      router.push(onboardingStepRoute(0));
       router.refresh();
     }, 1200);
   };

@@ -35,6 +35,7 @@ export default async function PlanoPage() {
 
   return (
     <PlanoPageClient
+      companyId={companyId}
       subscription={subscription}
       plans={plans ?? []}
       billingEvents={billingEvents ?? []}

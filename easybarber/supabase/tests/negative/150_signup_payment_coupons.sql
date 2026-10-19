@@ -169,11 +169,10 @@ select test.assert(:'limitado2_discount' = '30', 'company A (already holding the
 -- 8. Cross-company isolation: none of the above touched company B's
 -- subscription or booking ability beyond the exhaustion check in 7.
 -- (check_company_subscription_active() is intentionally unchanged by
--- this migration — still 'suspensa'-only; a 'pendente' company's own
--- app-level redirect, not a data-layer trigger, is what actually
--- keeps it from reaching Agenda/Profissionais/etc. in the first
--- place. See src/app/(app)/layout.tsx and the migration's own header
--- comment.)
+-- THIS migration — coupon redemption is independent of it. It's
+-- 20260101000041_pendente_blocks_bookings.sql, not this one, that
+-- extended it to also cover 'pendente' — see
+-- 130_subscription_enforcement.sql section 0 for that coverage.)
 -- ---------------------------------------------------------------------
 select test.act_as_superuser();
 select count(*) as n from public.coupon_redemptions where company_id = :'company_b_id'::uuid \gset companyb_redemptions_
