@@ -22,6 +22,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Modal } from "@/components/ui/Modal";
 import { Input } from "@/components/ui/Input";
+import { Textarea } from "@/components/ui/Textarea";
 import { Alert } from "@/components/ui/Alert";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { SubscriptionStatusBadge } from "@/components/ui/StatusBadge";
@@ -565,6 +566,7 @@ function GrantAccessFormFields({
 function PixSettingsCard({ initialSettings }: { initialSettings: PixPaymentSettings }) {
   const router = useRouter();
   const [pixKey, setPixKey] = React.useState(initialSettings.pixKey ?? "");
+  const [copyPasteCode, setCopyPasteCode] = React.useState(initialSettings.copyPasteCode ?? "");
   const [preview, setPreview] = React.useState<string | null>(initialSettings.qrCodeUrl);
   const [file, setFile] = React.useState<File | null>(null);
   const [submitting, setSubmitting] = React.useState(false);
@@ -586,6 +588,7 @@ function PixSettingsCard({ initialSettings }: { initialSettings: PixPaymentSetti
     setSubmitting(true);
     const formData = new FormData();
     formData.set("pixKey", pixKey);
+    formData.set("copyPasteCode", copyPasteCode);
     if (file) formData.set("qrCode", file);
     const result = await updatePixSettings(formData);
     setSubmitting(false);
@@ -633,6 +636,17 @@ function PixSettingsCard({ initialSettings }: { initialSettings: PixPaymentSetti
               value={pixKey}
               onChange={(e) => {
                 setPixKey(e.target.value);
+                setSaved(false);
+              }}
+            />
+            <Textarea
+              label="Código Pix copia e cola (opcional)"
+              placeholder="O código completo gerado pelo seu banco — cole aqui o texto, não a imagem"
+              hint="Quando preenchido, a barbearia vê um botão pra copiar esse código direto, além do QR Code — ele já inclui o valor certo, então é mais rápido de pagar do que digitar a chave."
+              rows={4}
+              value={copyPasteCode}
+              onChange={(e) => {
+                setCopyPasteCode(e.target.value);
                 setSaved(false);
               }}
             />

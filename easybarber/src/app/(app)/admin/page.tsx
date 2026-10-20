@@ -51,7 +51,7 @@ export default async function AdminPage() {
     getPixPaymentSettings(),
   ]);
 
-  const EMPTY_PIX_SETTINGS: PixPaymentSettings = { pixKey: null, qrCodeUrl: null };
+  const EMPTY_PIX_SETTINGS: PixPaymentSettings = { pixKey: null, qrCodeUrl: null, copyPasteCode: null };
 
   return (
     <AdminPageClient

@@ -80,6 +80,7 @@ export function PlanoPageClient({
   canManage,
   pixKey,
   qrCodeUrl,
+  copyPasteCode,
 }: {
   companyId: string;
   subscription: SubscriptionRow;
@@ -88,6 +89,7 @@ export function PlanoPageClient({
   canManage: boolean;
   pixKey: string | null;
   qrCodeUrl: string | null;
+  copyPasteCode: string | null;
 }) {
   const router = useRouter();
   const [cancelOpen, setCancelOpen] = React.useState(false);
@@ -170,6 +172,7 @@ export function PlanoPageClient({
               amountCents={subscription.plan.price_cents}
               pixKey={pixKey}
               qrCodeUrl={qrCodeUrl}
+              copyPasteCode={copyPasteCode}
               planName={subscription.plan.name}
             />
           )}
@@ -325,32 +328,42 @@ export function PlanoPageClient({
  * check and use "Liberar acesso"; it doesn't confirm anything by
  * itself.
  */
+/**
+ * copyPasteCode (the Pix "copia e cola" EMV payload) is the primary
+ * way to pay when set — pasting it into a banking app pre-fills the
+ * exact amount along with the recipient, so there's no chance of
+ * typing the wrong value. pixKey (the bare key) only identifies the
+ * recipient; the payer still has to enter the amount by hand, so it's
+ * kept as a smaller fallback, not the main call to action.
+ */
 function PixPaymentBlock({
   amountCents,
   pixKey,
   qrCodeUrl,
+  copyPasteCode,
   planName,
 }: {
   amountCents: number;
   pixKey: string | null;
   qrCodeUrl: string | null;
+  copyPasteCode: string | null;
   planName: string;
 }) {
-  const [copied, setCopied] = React.useState(false);
+  const [copiedCode, setCopiedCode] = React.useState(false);
+  const [copiedKey, setCopiedKey] = React.useState(false);
 
-  const copyKey = async () => {
-    if (!pixKey) return;
+  const copyText = async (text: string, setCopied: (v: boolean) => void) => {
     try {
-      await navigator.clipboard.writeText(pixKey);
+      await navigator.clipboard.writeText(text);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch {
       // Clipboard API can be unavailable (e.g. insecure context) — the
-      // key is still fully visible and selectable by hand below.
+      // text is still fully visible and selectable by hand.
     }
   };
 
-  if (!pixKey && !qrCodeUrl) {
+  if (!pixKey && !qrCodeUrl && !copyPasteCode) {
     return (
       <Alert variant="warning" title="Pagamento ainda não configurado">
         Fale com o suporte pelo WhatsApp para receber os dados de pagamento.
@@ -376,22 +389,40 @@ function PixPaymentBlock({
             className="size-40 shrink-0 rounded-xl border border-black/10 object-contain"
           />
         )}
-        {pixKey && (
-          <div className="flex min-w-0 flex-1 flex-col gap-2">
-            <p className="text-xs text-brand-graphite/50">Ou pague com a chave Pix</p>
-            <div className="flex items-center gap-2 rounded-xl bg-brand-surface px-3.5 py-2.5">
-              <code className="min-w-0 flex-1 truncate text-sm text-brand-graphite">{pixKey}</code>
+        <div className="flex min-w-0 flex-1 flex-col gap-3">
+          {copyPasteCode && (
+            <div className="flex flex-col gap-1.5">
+              <p className="text-xs text-brand-graphite/50">
+                Escaneie o QR Code ou copie o código Pix abaixo
+              </p>
               <Button
-                variant="ghost"
-                size="sm"
-                icon={copied ? <Check className="size-4" /> : <Copy className="size-4" />}
-                onClick={copyKey}
+                fullWidth
+                icon={copiedCode ? <Check className="size-4" /> : <Copy className="size-4" />}
+                onClick={() => copyText(copyPasteCode, setCopiedCode)}
               >
-                {copied ? "Copiado!" : "Copiar"}
+                {copiedCode ? "Código copiado!" : "Copiar código Pix"}
               </Button>
             </div>
-          </div>
-        )}
+          )}
+          {pixKey && (
+            <div className="flex min-w-0 flex-col gap-1.5">
+              <p className="text-xs text-brand-graphite/50">
+                {copyPasteCode ? "Ou pague direto com a chave Pix" : "Pague com a chave Pix"}
+              </p>
+              <div className="flex items-center gap-2 rounded-xl bg-brand-surface px-3.5 py-2.5">
+                <code className="min-w-0 flex-1 truncate text-sm text-brand-graphite">{pixKey}</code>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  icon={copiedKey ? <Check className="size-4" /> : <Copy className="size-4" />}
+                  onClick={() => copyText(pixKey, setCopiedKey)}
+                >
+                  {copiedKey ? "Copiado!" : "Copiar"}
+                </Button>
+              </div>
+            </div>
+          )}
+        </div>
       </div>
 
       <Button

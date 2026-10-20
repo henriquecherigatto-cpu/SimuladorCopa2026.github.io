@@ -34,7 +34,11 @@ export default async function PlanoPage() {
     // Single platform-wide row, readable by any authenticated user —
     // see pix_payment_settings_read in
     // 20260101000043_manual_pix_payment.sql.
-    supabase.from("pix_payment_settings").select("pix_key, qr_code_url").eq("id", 1).maybeSingle(),
+    supabase
+      .from("pix_payment_settings")
+      .select("pix_key, qr_code_url, copy_paste_code")
+      .eq("id", 1)
+      .maybeSingle(),
   ]);
 
   if (subError) throw subError;
@@ -51,6 +55,7 @@ export default async function PlanoPage() {
       canManage={role === "owner"}
       pixKey={pixSettings?.pix_key ?? null}
       qrCodeUrl={pixSettings?.qr_code_url ?? null}
+      copyPasteCode={pixSettings?.copy_paste_code ?? null}
     />
   );
 }
