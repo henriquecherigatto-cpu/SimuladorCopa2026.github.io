@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { usePathname } from "next/navigation";
 import { AlertTriangle, Ban, CreditCard } from "lucide-react";
 import { Modal } from "@/components/ui/Modal";
 import { Button } from "@/components/ui/Button";
@@ -25,8 +26,15 @@ export type SubscriptionAlert =
  */
 export function SubscriptionStatusModal({ alert }: { alert: SubscriptionAlert | null }) {
   const [open, setOpen] = React.useState(!!alert);
+  const pathname = usePathname();
 
   if (!alert) return null;
+
+  // A plain link to /plano is a no-op when that's already the page
+  // behind this modal — Next doesn't remount on a same-route
+  // navigation, so the modal just sits there looking broken. Closing
+  // it instead reveals the payment block right below it.
+  const onPlanoPage = pathname === "/plano";
 
   const whatsappHref = buildWhatsAppLink(
     SUPPORT_WHATSAPP_NUMBER,
@@ -100,9 +108,19 @@ export function SubscriptionStatusModal({ alert }: { alert: SubscriptionAlert | 
 
         <div className="mt-1 flex w-full flex-col gap-2">
           {alert.variant === "pendente" ? (
-            <Button href="/plano" fullWidth icon={<CreditCard className="size-4" />}>
-              Ativar assinatura
-            </Button>
+            onPlanoPage ? (
+              <Button
+                fullWidth
+                icon={<CreditCard className="size-4" />}
+                onClick={() => setOpen(false)}
+              >
+                Ativar assinatura
+              </Button>
+            ) : (
+              <Button href="/plano" fullWidth icon={<CreditCard className="size-4" />}>
+                Ativar assinatura
+              </Button>
+            )
           ) : (
             <Button
               href={whatsappHref}

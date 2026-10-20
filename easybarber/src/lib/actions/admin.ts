@@ -251,13 +251,14 @@ export async function getPixPaymentSettings(): Promise<ActionResult<PixPaymentSe
 }
 
 /**
- * The platform's single, fixed Pix receiving key + QR code + "copia e
- * cola" code — not per-company, there's exactly one person receiving
- * these payments. Set here, shown on every company's /plano. See
- * admin_update_pix_settings() in
- * supabase/migrations/20260101000044_pix_copy_paste_code.sql. A new
- * image replaces the stored one (old object removed from storage);
- * omitting a file keeps whatever QR code is already set.
+ * The platform's single, fixed Pix receiving key — not per-company,
+ * there's exactly one person receiving these payments. Set here,
+ * shown on every company's /plano. See admin_update_pix_settings() in
+ * supabase/migrations/20260101000044_pix_copy_paste_code.sql. The
+ * admin form only edits the key right now — the QR code image and
+ * "copia e cola" code aren't shown here, but whatever is already
+ * stored for them is passed straight through unchanged rather than
+ * wiped, since the form doesn't send either field.
  */
 export async function updatePixSettings(formData: FormData): Promise<ActionResult<PixPaymentSettings>> {
   return runAction(async () => {
@@ -265,16 +266,17 @@ export async function updatePixSettings(formData: FormData): Promise<ActionResul
 
     const pixKeyRaw = formData.get("pixKey");
     const pixKey = typeof pixKeyRaw === "string" ? pixKeyRaw.trim() : "";
-    const copyPasteRaw = formData.get("copyPasteCode");
-    const copyPasteCode = typeof copyPasteRaw === "string" ? copyPasteRaw.trim() : "";
 
     const { data: current } = await supabase
       .from("pix_payment_settings")
-      .select("qr_code_url")
+      .select("qr_code_url, copy_paste_code")
       .eq("id", 1)
       .maybeSingle();
 
     let qrCodeUrl = current?.qr_code_url ?? null;
+    const copyPasteRaw = formData.get("copyPasteCode");
+    const copyPasteCode =
+      typeof copyPasteRaw === "string" ? copyPasteRaw.trim() : current?.copy_paste_code ?? "";
 
     const file = formData.get("qrCode");
     if (file instanceof File && file.size > 0) {
