@@ -230,6 +230,7 @@ function storagePathFromPublicUrl(url: string | null | undefined, bucket: string
 export interface PixPaymentSettings {
   pixKey: string | null;
   qrCodeUrl: string | null;
+  copyPasteCode: string | null;
 }
 
 export async function getPixPaymentSettings(): Promise<ActionResult<PixPaymentSettings>> {
@@ -237,20 +238,24 @@ export async function getPixPaymentSettings(): Promise<ActionResult<PixPaymentSe
     const { supabase } = await requirePlatformAdmin();
     const { data, error } = await supabase
       .from("pix_payment_settings")
-      .select("pix_key, qr_code_url")
+      .select("pix_key, qr_code_url, copy_paste_code")
       .eq("id", 1)
       .maybeSingle();
     if (error) throw error;
-    return { pixKey: data?.pix_key ?? null, qrCodeUrl: data?.qr_code_url ?? null };
+    return {
+      pixKey: data?.pix_key ?? null,
+      qrCodeUrl: data?.qr_code_url ?? null,
+      copyPasteCode: data?.copy_paste_code ?? null,
+    };
   });
 }
 
 /**
- * The platform's single, fixed Pix receiving key + QR code — not
- * per-company, there's exactly one person receiving these payments.
- * Set here, shown on every company's /plano. See
+ * The platform's single, fixed Pix receiving key + QR code + "copia e
+ * cola" code — not per-company, there's exactly one person receiving
+ * these payments. Set here, shown on every company's /plano. See
  * admin_update_pix_settings() in
- * supabase/migrations/20260101000043_manual_pix_payment.sql. A new
+ * supabase/migrations/20260101000044_pix_copy_paste_code.sql. A new
  * image replaces the stored one (old object removed from storage);
  * omitting a file keeps whatever QR code is already set.
  */
@@ -260,6 +265,8 @@ export async function updatePixSettings(formData: FormData): Promise<ActionResul
 
     const pixKeyRaw = formData.get("pixKey");
     const pixKey = typeof pixKeyRaw === "string" ? pixKeyRaw.trim() : "";
+    const copyPasteRaw = formData.get("copyPasteCode");
+    const copyPasteCode = typeof copyPasteRaw === "string" ? copyPasteRaw.trim() : "";
 
     const { data: current } = await supabase
       .from("pix_payment_settings")
@@ -298,12 +305,13 @@ export async function updatePixSettings(formData: FormData): Promise<ActionResul
     const { error } = await supabase.rpc("admin_update_pix_settings", {
       p_pix_key: pixKey,
       p_qr_code_url: qrCodeUrl ?? "",
+      p_copy_paste_code: copyPasteCode,
     });
     if (error) throw error;
 
     revalidatePath("/admin");
     revalidatePath("/plano");
 
-    return { pixKey: pixKey || null, qrCodeUrl };
+    return { pixKey: pixKey || null, qrCodeUrl, copyPasteCode: copyPasteCode || null };
   });
 }

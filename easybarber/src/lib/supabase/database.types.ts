@@ -481,6 +481,7 @@ export type Database = {
       };
       pix_payment_settings: {
         Row: {
+          copy_paste_code: string | null;
           id: number;
           pix_key: string | null;
           qr_code_url: string | null;
@@ -489,6 +490,7 @@ export type Database = {
         };
         ComputedFields: never;
         Insert: {
+          copy_paste_code?: string | null;
           id?: number;
           pix_key?: string | null;
           qr_code_url?: string | null;
@@ -496,6 +498,7 @@ export type Database = {
           updated_by?: string | null;
         };
         Update: {
+          copy_paste_code?: string | null;
           id?: number;
           pix_key?: string | null;
           qr_code_url?: string | null;
@@ -1065,7 +1068,7 @@ export type Database = {
         Returns: boolean;
       };
       admin_update_pix_settings: {
-        Args: { p_pix_key: string; p_qr_code_url: string };
+        Args: { p_copy_paste_code?: string; p_pix_key: string; p_qr_code_url: string };
         Returns: undefined;
       };
       admin_update_plan_price: {
