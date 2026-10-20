@@ -46,5 +46,7 @@
 \ir 180_whatsapp_connections_isolation.sql
 \echo '=== 190_onboarding_steps.sql ==='
 \ir 190_onboarding_steps.sql
+\echo '=== 200_manual_pix_payment.sql ==='
+\ir 200_manual_pix_payment.sql
 
 \echo '=== ALL NEGATIVE TESTS PASSED ==='

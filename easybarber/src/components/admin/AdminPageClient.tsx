@@ -11,6 +11,7 @@ import {
   CheckCircle2,
   MessageCircle,
   Pencil,
+  QrCode,
   Search,
   ShieldAlert,
   TrendingUp,
@@ -28,6 +29,7 @@ import { RevenueChart } from "@/components/admin/RevenueChart";
 import {
   grantSubscriptionAccess,
   updateCompanyPlan,
+  updatePixSettings,
   updatePlanPrice,
   updateSubscriptionStatus,
   type AdminAuditLogRow,
@@ -35,6 +37,7 @@ import {
   type AdminPlanRow,
   type AdminPlatformMetrics,
   type AdminRevenuePoint,
+  type PixPaymentSettings,
 } from "@/lib/actions/admin";
 import { APP_TIMEZONE, cn, formatCurrencyBRL } from "@/lib/utils";
 
@@ -44,12 +47,14 @@ export function AdminPageClient({
   revenue,
   plans,
   auditLog,
+  pixSettings,
 }: {
   companies: AdminCompanyRow[];
   metrics: AdminPlatformMetrics;
   revenue: AdminRevenuePoint[];
   plans: AdminPlanRow[];
   auditLog: AdminAuditLogRow[];
+  pixSettings: PixPaymentSettings;
 }) {
   const router = useRouter();
   const [query, setQuery] = React.useState("");
@@ -256,6 +261,8 @@ export function AdminPageClient({
         </CardContent>
       </Card>
 
+      <PixSettingsCard initialSettings={pixSettings} />
+
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <Card>
           <CardHeader>
@@ -393,6 +400,12 @@ function describeAuditAction(entry: AdminAuditLogRow): string {
       const from = typeof metadata.from_plan === "string" ? metadata.from_plan : "?";
       const to = typeof metadata.to_plan === "string" ? metadata.to_plan : "?";
       return `Plano alterado de ${from} para ${to}`;
+    }
+    case "pix_settings_updated": {
+      const pixKey = typeof metadata.pix_key === "string" ? metadata.pix_key : null;
+      const qrChanged = metadata.qr_code_changed === true;
+      const keyText = pixKey ? `chave "${pixKey}"` : "sem chave definida";
+      return `Dados de pagamento Pix atualizados — ${keyText}${qrChanged ? ", QR Code trocado" : ""}`;
     }
     case "admin_granted_subscription_access": {
       const days = typeof metadata.days === "number" ? metadata.days : null;
@@ -546,5 +559,89 @@ function GrantAccessFormFields({
         Liberar acesso
       </Button>
     </form>
+  );
+}
+
+function PixSettingsCard({ initialSettings }: { initialSettings: PixPaymentSettings }) {
+  const router = useRouter();
+  const [pixKey, setPixKey] = React.useState(initialSettings.pixKey ?? "");
+  const [preview, setPreview] = React.useState<string | null>(initialSettings.qrCodeUrl);
+  const [file, setFile] = React.useState<File | null>(null);
+  const [submitting, setSubmitting] = React.useState(false);
+  const [error, setError] = React.useState<string | null>(null);
+  const [saved, setSaved] = React.useState(false);
+
+  const onFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const selected = e.target.files?.[0];
+    if (!selected) return;
+    setFile(selected);
+    setPreview(URL.createObjectURL(selected));
+    setSaved(false);
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError(null);
+    setSaved(false);
+    setSubmitting(true);
+    const formData = new FormData();
+    formData.set("pixKey", pixKey);
+    if (file) formData.set("qrCode", file);
+    const result = await updatePixSettings(formData);
+    setSubmitting(false);
+    if (!result.ok) {
+      setError(result.error);
+      return;
+    }
+    setFile(null);
+    setSaved(true);
+    router.refresh();
+  };
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Pagamento via Pix manual</CardTitle>
+        <p className="text-xs text-brand-graphite/50">
+          QR Code e chave que toda barbearia vê em &ldquo;Plano e assinatura&rdquo; — é o mesmo
+          para todas. Confira o pagamento recebido e use &ldquo;Liberar acesso&rdquo; acima para
+          ativar.
+        </p>
+      </CardHeader>
+      <CardContent>
+        <form onSubmit={handleSubmit} className="flex flex-col gap-4 sm:flex-row sm:items-start">
+          <div className="flex shrink-0 flex-col items-center gap-2">
+            <div className="flex size-36 items-center justify-center overflow-hidden rounded-xl border border-black/10 bg-brand-surface">
+              {preview ? (
+                // eslint-disable-next-line @next/next/no-img-element -- external/storage URL, not a static asset
+                <img src={preview} alt="QR Code Pix" className="size-full object-contain" />
+              ) : (
+                <QrCode className="size-10 text-brand-graphite/30" />
+              )}
+            </div>
+            <label className="cursor-pointer text-xs font-medium text-brand-orange hover:underline">
+              {preview ? "Trocar imagem" : "Enviar QR Code"}
+              <input type="file" accept="image/*" className="hidden" onChange={onFileChange} />
+            </label>
+          </div>
+          <div className="flex min-w-0 flex-1 flex-col gap-3">
+            {error && <Alert variant="error">{error}</Alert>}
+            {saved && !error && <Alert variant="success">Dados de pagamento atualizados.</Alert>}
+            <Input
+              label="Chave Pix"
+              placeholder="CPF, CNPJ, e-mail, telefone ou chave aleatória"
+              value={pixKey}
+              onChange={(e) => {
+                setPixKey(e.target.value);
+                setSaved(false);
+              }}
+            />
+            <Button type="submit" loading={submitting} className="self-start">
+              Salvar
+            </Button>
+          </div>
+        </form>
+      </CardContent>
+    </Card>
   );
 }

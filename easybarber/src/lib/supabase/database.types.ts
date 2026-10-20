@@ -479,6 +479,39 @@ export type Database = {
           },
         ];
       };
+      pix_payment_settings: {
+        Row: {
+          id: number;
+          pix_key: string | null;
+          qr_code_url: string | null;
+          updated_at: string;
+          updated_by: string | null;
+        };
+        ComputedFields: never;
+        Insert: {
+          id?: number;
+          pix_key?: string | null;
+          qr_code_url?: string | null;
+          updated_at?: string;
+          updated_by?: string | null;
+        };
+        Update: {
+          id?: number;
+          pix_key?: string | null;
+          qr_code_url?: string | null;
+          updated_at?: string;
+          updated_by?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "pix_payment_settings_updated_by_fkey";
+            columns: ["updated_by"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       plans: {
         Row: {
           active: boolean;
@@ -1030,6 +1063,10 @@ export type Database = {
       advance_onboarding_step: {
         Args: { p_company_id: string; p_expected_step: number };
         Returns: boolean;
+      };
+      admin_update_pix_settings: {
+        Args: { p_pix_key: string; p_qr_code_url: string };
+        Returns: undefined;
       };
       admin_update_plan_price: {
         Args: { p_plan_id: string; p_price_cents: number };

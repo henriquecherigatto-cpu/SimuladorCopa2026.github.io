@@ -215,3 +215,95 @@ export async function grantSubscriptionAccess(
     return { newPeriodEnd: data as string };
   });
 }
+
+const PIX_QR_BUCKET = "pix-qr-code";
+const MAX_QR_BYTES = 3 * 1024 * 1024;
+
+function storagePathFromPublicUrl(url: string | null | undefined, bucket: string): string | null {
+  if (!url) return null;
+  const marker = `/object/public/${bucket}/`;
+  const index = url.indexOf(marker);
+  if (index === -1) return null;
+  return url.slice(index + marker.length);
+}
+
+export interface PixPaymentSettings {
+  pixKey: string | null;
+  qrCodeUrl: string | null;
+}
+
+export async function getPixPaymentSettings(): Promise<ActionResult<PixPaymentSettings>> {
+  return runAction(async () => {
+    const { supabase } = await requirePlatformAdmin();
+    const { data, error } = await supabase
+      .from("pix_payment_settings")
+      .select("pix_key, qr_code_url")
+      .eq("id", 1)
+      .maybeSingle();
+    if (error) throw error;
+    return { pixKey: data?.pix_key ?? null, qrCodeUrl: data?.qr_code_url ?? null };
+  });
+}
+
+/**
+ * The platform's single, fixed Pix receiving key + QR code — not
+ * per-company, there's exactly one person receiving these payments.
+ * Set here, shown on every company's /plano. See
+ * admin_update_pix_settings() in
+ * supabase/migrations/20260101000043_manual_pix_payment.sql. A new
+ * image replaces the stored one (old object removed from storage);
+ * omitting a file keeps whatever QR code is already set.
+ */
+export async function updatePixSettings(formData: FormData): Promise<ActionResult<PixPaymentSettings>> {
+  return runAction(async () => {
+    const { supabase } = await requirePlatformAdmin();
+
+    const pixKeyRaw = formData.get("pixKey");
+    const pixKey = typeof pixKeyRaw === "string" ? pixKeyRaw.trim() : "";
+
+    const { data: current } = await supabase
+      .from("pix_payment_settings")
+      .select("qr_code_url")
+      .eq("id", 1)
+      .maybeSingle();
+
+    let qrCodeUrl = current?.qr_code_url ?? null;
+
+    const file = formData.get("qrCode");
+    if (file instanceof File && file.size > 0) {
+      if (!file.type.startsWith("image/")) {
+        throw new Error("Envie um arquivo de imagem (JPG, PNG, etc).");
+      }
+      if (file.size > MAX_QR_BYTES) {
+        throw new Error("A imagem deve ter até 3 MB.");
+      }
+
+      const ext = file.name.includes(".") ? file.name.split(".").pop() : "png";
+      const path = `${crypto.randomUUID()}.${ext}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from(PIX_QR_BUCKET)
+        .upload(path, file, { contentType: file.type, upsert: false });
+      if (uploadError) throw uploadError;
+
+      const { data: urlData } = supabase.storage.from(PIX_QR_BUCKET).getPublicUrl(path);
+      const previousPath = storagePathFromPublicUrl(qrCodeUrl, PIX_QR_BUCKET);
+      qrCodeUrl = urlData.publicUrl;
+
+      if (previousPath) {
+        await supabase.storage.from(PIX_QR_BUCKET).remove([previousPath]);
+      }
+    }
+
+    const { error } = await supabase.rpc("admin_update_pix_settings", {
+      p_pix_key: pixKey,
+      p_qr_code_url: qrCodeUrl ?? "",
+    });
+    if (error) throw error;
+
+    revalidatePath("/admin");
+    revalidatePath("/plano");
+
+    return { pixKey: pixKey || null, qrCodeUrl };
+  });
+}

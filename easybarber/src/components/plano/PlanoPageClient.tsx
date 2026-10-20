@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { formatInTimeZone } from "date-fns-tz";
-import { AlertTriangle, Check, CreditCard, QrCode, Receipt } from "lucide-react";
+import { AlertTriangle, Check, Copy, Receipt } from "lucide-react";
 import { PageHeader } from "@/components/PageHeader";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
@@ -14,35 +14,8 @@ import { Alert } from "@/components/ui/Alert";
 import { Modal } from "@/components/ui/Modal";
 import { WhatsAppIcon } from "@/components/icons/WhatsAppIcon";
 import { SUPPORT_WHATSAPP_NUMBER } from "@/components/layout/SupportWhatsAppButton";
-import { createCheckoutSession, getOpenInvoiceLink } from "@/lib/actions/billing";
 import { useRealtimeTable } from "@/lib/hooks/useRealtimeTable";
 import { APP_TIMEZONE, buildWhatsAppLink, cn, formatCurrencyBRL } from "@/lib/utils";
-
-/**
- * Opens the Asaas invoice in its own tab instead of navigating this
- * one away to it — same reasoning and pattern as
- * ConfirmadoOnboardingClient.tsx's onboarding equivalent used to have
- * (before payment moved here): Asaas's hosted Pix page never
- * redirects back on its own, so a full-page redirect would strand the
- * owner there. Opened synchronously, before the async checkout-session
- * call, so the browser still attributes it to the click (a popup
- * opened after an await is commonly blocked). Falls back to
- * navigating this tab if the popup was blocked anyway.
- */
-function openInvoiceTab(url: string, popup: Window | null) {
-  if (popup && !popup.closed) {
-    popup.location.href = url;
-  } else {
-    window.location.href = url;
-  }
-}
-
-interface OpenInvoice {
-  url: string;
-  dueDate: string;
-  amountCents: number;
-  overdue: boolean;
-}
 
 type SubscriptionStatus = "pendente" | "ativa" | "tolerancia" | "suspensa" | "cancelada";
 
@@ -105,82 +78,36 @@ export function PlanoPageClient({
   plans,
   billingEvents,
   canManage,
+  pixKey,
+  qrCodeUrl,
 }: {
   companyId: string;
   subscription: SubscriptionRow;
   plans: PlanRow[];
   billingEvents: BillingEventRow[];
   canManage: boolean;
+  pixKey: string | null;
+  qrCodeUrl: string | null;
 }) {
   const router = useRouter();
-  const [checkoutError, setCheckoutError] = React.useState<string | null>(null);
-  const [checkoutLoadingPlanId, setCheckoutLoadingPlanId] = React.useState<string | null>(null);
-  const [awaitingPayment, setAwaitingPayment] = React.useState(false);
   const [cancelOpen, setCancelOpen] = React.useState(false);
-  const [openInvoice, setOpenInvoice] = React.useState<OpenInvoice | null>(null);
-  const [invoiceState, setInvoiceState] = React.useState<"idle" | "loading" | "found" | "none" | "error">(
-    "idle",
-  );
-  const [invoiceError, setInvoiceError] = React.useState<string | null>(null);
 
-  // A real Asaas subscription (recurring Pix) only exists once the
-  // owner has gone through checkout at least once. Before that,
-  // starting a new checkout is always safe. Afterwards (ativa,
-  // tolerancia, suspensa all imply a subscription already exists on
-  // Asaas's side), calling createCheckoutSession again would create a
-  // SECOND concurrent recurring subscription — Asaas itself already
-  // auto-generates the next monthly charge, and a lapsed payment is
-  // resolved by paying the invoice Asaas already generated (the owner
-  // gets a WhatsApp reminder — see notifyCompanyEnteringGracePeriod),
-  // not by starting over. Switching plans or cancelling once a
-  // subscription is live goes through support until real Asaas
-  // subscription-replacement/cancellation is built.
-  const canStartCheckout = subscription.status === "pendente";
-
-  const startCheckout = async (planId: string) => {
-    setCheckoutError(null);
-    setCheckoutLoadingPlanId(planId);
-    const popup = window.open("", "_blank");
-    const result = await createCheckoutSession(planId);
-    if (!result.ok) {
-      popup?.close();
-      setCheckoutLoadingPlanId(null);
-      setCheckoutError(result.error);
-      return;
-    }
-    openInvoiceTab(result.data.url, popup);
-    setCheckoutLoadingPlanId(null);
-    setAwaitingPayment(true);
-  };
-
-  // The webhook confirms payment asynchronously — the owner may well
-  // still be on this tab (the Pix opened in a new one). Once
-  // subscriptions changes, just refresh this Server Component: the
-  // status badge, "Assinar agora" button and billing history all
-  // update on their own from the reloaded data, no special redirect
-  // needed (unlike the onboarding wizard, this page isn't a step to
-  // move past).
+  // Payment is manual now: the admin checks their own Pix account and
+  // activates access through the admin panel's "Liberar acesso" —
+  // admin_grant_subscription_access() in
+  // 20260101000025_admin_subscription_control.sql, built with exactly
+  // this flow in mind. This stays subscribed so that the moment the
+  // admin does that, this page updates itself (status badge, this Pix
+  // block's visibility, billing history) with no reload — the owner
+  // never has to come back and check manually.
   useRealtimeTable("subscriptions", `company_id=eq.${companyId}`, () => router.refresh());
 
   const supportLink = (message: string) => buildWhatsAppLink(SUPPORT_WHATSAPP_NUMBER, message);
 
-  // Fetched on demand (button click), never automatically on page
-  // load: this hits Asaas's real API, and the subscription's status
-  // badge above already comes from our own database, kept current by
-  // the webhook — this is purely "is there a link to pay right now",
-  // for when the provider's own notification was missed.
-  const checkOpenInvoice = async () => {
-    setInvoiceState("loading");
-    setInvoiceError(null);
-    const result = await getOpenInvoiceLink();
-    if (!result.ok) {
-      setInvoiceState("error");
-      setInvoiceError(result.error);
-      return;
-    }
-    setOpenInvoice(result.data);
-    setInvoiceState(result.data ? "found" : "none");
-  };
+  const needsPayment =
+    subscription.status === "pendente" ||
+    subscription.status === "tolerancia" ||
+    subscription.status === "suspensa";
 
   return (
     <div className="flex flex-col gap-5">
@@ -189,28 +116,19 @@ export function PlanoPageClient({
         description="Acompanhe sua assinatura e histórico de pagamentos."
       />
 
-      {awaitingPayment && canStartCheckout && (
-        <Alert variant="info" title="Aguardando confirmação do pagamento">
-          O Pix abriu em uma nova aba. Pague por lá — assim que for
-          confirmado, esta página atualiza sozinha, sem precisar recarregar.
-        </Alert>
-      )}
-
       {subscription.status === "tolerancia" && (
         <Alert variant="warning" title="Pagamento pendente">
           {subscription.grace_period_ends_at
-            ? `Regularize o pagamento já gerado no Pix/Asaas até ${formatDate(subscription.grace_period_ends_at)} para evitar a suspensão do acesso.`
-            : "Regularize o pagamento já gerado no Pix/Asaas para evitar a suspensão do acesso."}
+            ? `Pague via Pix (veja os dados abaixo) até ${formatDate(subscription.grace_period_ends_at)} para evitar a suspensão do acesso.`
+            : "Pague via Pix (veja os dados abaixo) para evitar a suspensão do acesso."}
         </Alert>
       )}
 
       {subscription.status === "suspensa" && (
         <Alert variant="error" title="Acesso suspenso por falta de pagamento">
-          Fale com o suporte pelo WhatsApp para regularizar e liberar o acesso novamente.
+          Pague via Pix (veja os dados abaixo) e avise que pagou para liberarmos o acesso novamente.
         </Alert>
       )}
-
-      {checkoutError && <Alert variant="error">{checkoutError}</Alert>}
 
       <Card>
         <CardHeader>
@@ -247,97 +165,36 @@ export function PlanoPageClient({
             ))}
           </ul>
 
-          {canManage && (
+          {canManage && needsPayment && (
+            <PixPaymentBlock
+              amountCents={subscription.plan.price_cents}
+              pixKey={pixKey}
+              qrCodeUrl={qrCodeUrl}
+              planName={subscription.plan.name}
+            />
+          )}
+
+          {canManage && subscription.status === "ativa" && (
             <div className="flex flex-col gap-2 sm:flex-row">
-              {canStartCheckout ? (
-                <Button
-                  fullWidth
-                  icon={<CreditCard className="size-4" />}
-                  loading={checkoutLoadingPlanId === subscription.plan.id}
-                  disabled={checkoutLoadingPlanId !== null}
-                  onClick={() => startCheckout(subscription.plan.id)}
-                >
-                  Assinar agora via Pix
-                </Button>
-              ) : (
-                subscription.status !== "cancelada" && (
-                  <Button
-                    fullWidth
-                    variant="secondary"
-                    icon={<WhatsAppIcon className="size-4" />}
-                    href={supportLink(
-                      `Olá! Preciso de ajuda com a assinatura da minha barbearia (plano ${subscription.plan.name}).`,
-                    )}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                  >
-                    Falar com o suporte
-                  </Button>
-                )
-              )}
-              {subscription.status === "ativa" && (
-                <Button variant="danger" fullWidth onClick={() => setCancelOpen(true)}>
-                  Cancelar assinatura
-                </Button>
-              )}
+              <Button variant="danger" fullWidth onClick={() => setCancelOpen(true)}>
+                Cancelar assinatura
+              </Button>
             </div>
           )}
 
-          {canManage && (subscription.status === "ativa" || subscription.status === "tolerancia") && (
-            <div className="flex flex-col gap-3 rounded-xl border border-black/10 p-4">
-              {invoiceState === "idle" && (
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  icon={<Receipt className="size-4" />}
-                  onClick={checkOpenInvoice}
-                >
-                  Ver cobrança atual
-                </Button>
+          {canManage && subscription.status === "cancelada" && (
+            <Button
+              fullWidth
+              variant="secondary"
+              icon={<WhatsAppIcon className="size-4" />}
+              href={supportLink(
+                `Olá! Preciso de ajuda com a assinatura da minha barbearia (plano ${subscription.plan.name}).`,
               )}
-              {invoiceState === "loading" && (
-                <p className="text-sm text-brand-graphite/50">Consultando na Asaas…</p>
-              )}
-              {invoiceState === "error" && (
-                <>
-                  <p className="text-sm text-brand-error">{invoiceError}</p>
-                  <Button variant="secondary" size="sm" onClick={checkOpenInvoice}>
-                    Tentar de novo
-                  </Button>
-                </>
-              )}
-              {invoiceState === "none" && (
-                <p className="text-sm text-brand-graphite/50">
-                  Nenhuma cobrança em aberto no momento.
-                </p>
-              )}
-              {invoiceState === "found" && openInvoice && (
-                <>
-                  <div className="flex flex-wrap items-center justify-between gap-2">
-                    <div>
-                      <p className="text-sm font-medium text-brand-graphite">
-                        {openInvoice.overdue ? "Cobrança em atraso" : "Próxima cobrança"}
-                      </p>
-                      <p className="text-xs text-brand-graphite/50">
-                        Vencimento: {formatDate(openInvoice.dueDate)}
-                      </p>
-                    </div>
-                    <p className="text-lg font-bold text-brand-graphite">
-                      {formatCurrencyBRL(openInvoice.amountCents / 100)}
-                    </p>
-                  </div>
-                  <Button
-                    fullWidth
-                    icon={<QrCode className="size-4" />}
-                    href={openInvoice.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                  >
-                    Pagar via Pix
-                  </Button>
-                </>
-              )}
-            </div>
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              Falar com o suporte
+            </Button>
           )}
         </CardContent>
       </Card>
@@ -387,18 +244,11 @@ export function PlanoPageClient({
                       <Button
                         variant="secondary"
                         size="sm"
-                        loading={checkoutLoadingPlanId === plan.id}
-                        disabled={checkoutLoadingPlanId !== null && !canStartCheckout}
-                        onClick={() =>
-                          canStartCheckout
-                            ? startCheckout(plan.id)
-                            : window.open(
-                                supportLink(
-                                  `Olá! Quero trocar o plano da minha barbearia para ${plan.name}.`,
-                                ),
-                                "_blank",
-                              )
-                        }
+                        href={supportLink(
+                          `Olá! Quero trocar o plano da minha barbearia para ${plan.name}.`,
+                        )}
+                        target="_blank"
+                        rel="noopener noreferrer"
                       >
                         Mudar para este plano
                       </Button>
@@ -451,11 +301,10 @@ export function PlanoPageClient({
         </CardContent>
       </Card>
 
-      <Alert variant="info" title="Segurança do pagamento">
-        O Easy Barber não armazena dados completos de cartão. A confirmação
-        de pagamento depende de eventos autenticados do provedor — nenhuma
-        cobrança é marcada como paga apenas pelo retorno do checkout.
-        Aceitamos apenas Pix.
+      <Alert variant="info" title="Sobre o pagamento">
+        Aceitamos apenas Pix. O pagamento é conferido manualmente pela nossa
+        equipe — depois de pagar, avise pelo WhatsApp (botão acima) para
+        agilizar a liberação do acesso.
       </Alert>
 
       <CancelSubscriptionModal
@@ -463,6 +312,101 @@ export function PlanoPageClient({
         onClose={() => setCancelOpen(false)}
         planName={subscription.plan.name}
       />
+    </div>
+  );
+}
+
+/**
+ * Payment is a fixed, platform-wide Pix key + QR code (set by the
+ * platform admin in /admin, see pix_payment_settings) instead of a
+ * dynamically generated Asaas charge — the admin checks their own Pix
+ * account and confirms manually. "Avisar que paguei" just opens
+ * WhatsApp with the amount/plan pre-filled so the admin knows to go
+ * check and use "Liberar acesso"; it doesn't confirm anything by
+ * itself.
+ */
+function PixPaymentBlock({
+  amountCents,
+  pixKey,
+  qrCodeUrl,
+  planName,
+}: {
+  amountCents: number;
+  pixKey: string | null;
+  qrCodeUrl: string | null;
+  planName: string;
+}) {
+  const [copied, setCopied] = React.useState(false);
+
+  const copyKey = async () => {
+    if (!pixKey) return;
+    try {
+      await navigator.clipboard.writeText(pixKey);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      // Clipboard API can be unavailable (e.g. insecure context) — the
+      // key is still fully visible and selectable by hand below.
+    }
+  };
+
+  if (!pixKey && !qrCodeUrl) {
+    return (
+      <Alert variant="warning" title="Pagamento ainda não configurado">
+        Fale com o suporte pelo WhatsApp para receber os dados de pagamento.
+      </Alert>
+    );
+  }
+
+  return (
+    <div className="flex flex-col gap-4 rounded-xl border border-black/10 p-4">
+      <div>
+        <p className="text-xs text-brand-graphite/50">Valor a pagar via Pix</p>
+        <p className="text-2xl font-bold text-brand-graphite">
+          {formatCurrencyBRL(amountCents / 100)}
+        </p>
+      </div>
+
+      <div className="flex flex-col items-center gap-4 sm:flex-row sm:items-start">
+        {qrCodeUrl && (
+          // eslint-disable-next-line @next/next/no-img-element -- external storage URL
+          <img
+            src={qrCodeUrl}
+            alt="QR Code Pix"
+            className="size-40 shrink-0 rounded-xl border border-black/10 object-contain"
+          />
+        )}
+        {pixKey && (
+          <div className="flex min-w-0 flex-1 flex-col gap-2">
+            <p className="text-xs text-brand-graphite/50">Ou pague com a chave Pix</p>
+            <div className="flex items-center gap-2 rounded-xl bg-brand-surface px-3.5 py-2.5">
+              <code className="min-w-0 flex-1 truncate text-sm text-brand-graphite">{pixKey}</code>
+              <Button
+                variant="ghost"
+                size="sm"
+                icon={copied ? <Check className="size-4" /> : <Copy className="size-4" />}
+                onClick={copyKey}
+              >
+                {copied ? "Copiado!" : "Copiar"}
+              </Button>
+            </div>
+          </div>
+        )}
+      </div>
+
+      <Button
+        fullWidth
+        variant="secondary"
+        icon={<WhatsAppIcon className="size-4" />}
+        href={buildWhatsAppLink(
+          SUPPORT_WHATSAPP_NUMBER,
+          `Olá! Acabei de pagar via Pix a assinatura da minha barbearia (plano ${planName}, ${formatCurrencyBRL(amountCents / 100)}).`,
+        )}
+        target="_blank"
+        rel="noopener noreferrer"
+      >
+        Avisar que paguei
+      </Button>
     </div>
   );
 }
