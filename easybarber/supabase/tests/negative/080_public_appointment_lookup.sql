@@ -152,4 +152,39 @@ select test.assert(:'aftercancel_can_cancel'::boolean is false, 'a cancelled app
 select public.cancel_public_appointment_by_phone(:'a_slug', '19999990004', gen_random_uuid()) ->> 'found' as found \gset unknownappt_
 select test.assert(:'unknownappt_found'::boolean is false, 'an unknown appointment id returns found: false rather than erroring');
 
-select test.assert(true, 'public appointment lookup by phone: correct scope, ordering, cross-company isolation, the today-or-later date filter, and phone-based cancellation (with its own slug+phone+id authorization check, idempotent) all verified');
+-- ---------------------------------------------------------------------
+-- 6. Formatting independence (20260101000045_phone_lookup_digit_match.sql):
+-- Cliente A's phone is stored as bare digits ('19999990004'); the
+-- same number dressed up in other shapes — what the lookup form's
+-- own mask would send, and an even sloppier shape with extra spaces
+-- and no punctuation — must still match, since both sides are now
+-- compared by digits only (phone_digits()), not as exact strings.
+-- ---------------------------------------------------------------------
+select id from public.get_public_customer_appointments(:'a_slug', '(19) 9 9999-0004')
+where id = :'appointment_a2_id'::uuid \gset fmt_
+select test.assert(:'fmt_id' = :'appointment_a2_id', 'a differently-formatted (but same-digits) phone still finds the appointment stored under the bare-digits phone');
+
+select count(*) as n from public.get_public_customer_appointments(:'a_slug', '  19 99999 0004  ') \gset fmt2_
+select test.assert(:fmt2_n >= 2, 'an even sloppier format (extra spaces, no punctuation) also matches, digits-only comparison');
+
+select test.act_as_superuser();
+insert into public.appointments (company_id, customer_id, professional_id, service_id, starts_at, ends_at, created_by)
+values (
+  :'company_a_id'::uuid, :'customer_a_id'::uuid, :'professional_a_id'::uuid, :'service_a_id'::uuid,
+  ((current_date + 1 + interval '16 hour') at time zone 'America/Sao_Paulo'),
+  ((current_date + 1 + interval '16 hour 45 minute') at time zone 'America/Sao_Paulo'),
+  :'owner_a_id'::uuid
+)
+returning id as appointment_a_fmt_cancel_id \gset
+
+select test.act_as_anon();
+select public.cancel_public_appointment_by_phone(:'a_slug', '(19) 9 9999-0004', :'appointment_a_fmt_cancel_id'::uuid) ->> 'found' as found \gset fmtcancel_
+select test.assert(:'fmtcancel_found'::boolean is true, 'cancel_public_appointment_by_phone() also matches a differently-formatted phone, by digits');
+
+select test.act_as_superuser();
+select status from public.appointments where id = :'appointment_a_fmt_cancel_id'::uuid \gset fmtcancelverify_
+select test.assert(:'fmtcancelverify_status' = 'cancelado', 'and the cancellation actually took effect');
+
+select test.act_as_anon();
+
+select test.assert(true, 'public appointment lookup by phone: correct scope, ordering, cross-company isolation, the today-or-later date filter, phone-based cancellation (with its own slug+phone+id authorization check, idempotent), and digit-only phone matching regardless of formatting all verified');

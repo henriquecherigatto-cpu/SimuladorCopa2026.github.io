@@ -13,7 +13,7 @@ import {
   fetchPublicCustomerAppointments,
   type PublicCustomerAppointment,
 } from "@/lib/actions/public-booking";
-import { APP_TIMEZONE } from "@/lib/utils";
+import { APP_TIMEZONE, formatBrazilianPhoneInput } from "@/lib/utils";
 
 export function PublicLookupForm({ slug }: { slug: string }) {
   const [phone, setPhone] = React.useState("");
@@ -93,7 +93,7 @@ export function PublicLookupForm({ slug }: { slug: string }) {
           leftIcon={<Phone className="size-4" />}
           value={phone}
           onChange={(e) => {
-            setPhone(e.target.value);
+            setPhone(formatBrazilianPhoneInput(e.target.value));
             setSearched(false);
           }}
           placeholder="(19) 99999-9999"
