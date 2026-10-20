@@ -8,6 +8,8 @@ import {
   getAdminOverview,
   getAdminPlans,
   getAdminRevenueTimeseries,
+  getPixPaymentSettings,
+  type PixPaymentSettings,
 } from "@/lib/actions/admin";
 
 export const metadata: Metadata = { title: "Administração — Easy Barber" };
@@ -40,13 +42,16 @@ export default async function AdminPage() {
     throw error;
   }
 
-  const [overview, metrics, revenue, plans, auditLog] = await Promise.all([
+  const [overview, metrics, revenue, plans, auditLog, pixSettings] = await Promise.all([
     getAdminOverview(),
     getAdminMetrics(),
     getAdminRevenueTimeseries(12),
     getAdminPlans(),
     getAdminAuditLog(20),
+    getPixPaymentSettings(),
   ]);
+
+  const EMPTY_PIX_SETTINGS: PixPaymentSettings = { pixKey: null, qrCodeUrl: null };
 
   return (
     <AdminPageClient
@@ -55,6 +60,7 @@ export default async function AdminPage() {
       revenue={revenue.ok ? revenue.data : []}
       plans={plans.ok ? plans.data : []}
       auditLog={auditLog.ok ? auditLog.data : []}
+      pixSettings={pixSettings.ok ? pixSettings.data : EMPTY_PIX_SETTINGS}
     />
   );
 }
