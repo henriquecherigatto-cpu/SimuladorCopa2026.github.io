@@ -11,7 +11,6 @@ import {
   CheckCircle2,
   MessageCircle,
   Pencil,
-  QrCode,
   Search,
   ShieldAlert,
   TrendingUp,
@@ -22,7 +21,6 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Modal } from "@/components/ui/Modal";
 import { Input } from "@/components/ui/Input";
-import { Textarea } from "@/components/ui/Textarea";
 import { Alert } from "@/components/ui/Alert";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { SubscriptionStatusBadge } from "@/components/ui/StatusBadge";
@@ -566,20 +564,9 @@ function GrantAccessFormFields({
 function PixSettingsCard({ initialSettings }: { initialSettings: PixPaymentSettings }) {
   const router = useRouter();
   const [pixKey, setPixKey] = React.useState(initialSettings.pixKey ?? "");
-  const [copyPasteCode, setCopyPasteCode] = React.useState(initialSettings.copyPasteCode ?? "");
-  const [preview, setPreview] = React.useState<string | null>(initialSettings.qrCodeUrl);
-  const [file, setFile] = React.useState<File | null>(null);
   const [submitting, setSubmitting] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   const [saved, setSaved] = React.useState(false);
-
-  const onFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const selected = e.target.files?.[0];
-    if (!selected) return;
-    setFile(selected);
-    setPreview(URL.createObjectURL(selected));
-    setSaved(false);
-  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -588,15 +575,12 @@ function PixSettingsCard({ initialSettings }: { initialSettings: PixPaymentSetti
     setSubmitting(true);
     const formData = new FormData();
     formData.set("pixKey", pixKey);
-    formData.set("copyPasteCode", copyPasteCode);
-    if (file) formData.set("qrCode", file);
     const result = await updatePixSettings(formData);
     setSubmitting(false);
     if (!result.ok) {
       setError(result.error);
       return;
     }
-    setFile(null);
     setSaved(true);
     router.refresh();
   };
@@ -606,54 +590,27 @@ function PixSettingsCard({ initialSettings }: { initialSettings: PixPaymentSetti
       <CardHeader>
         <CardTitle>Pagamento via Pix manual</CardTitle>
         <p className="text-xs text-brand-graphite/50">
-          QR Code e chave que toda barbearia vê em &ldquo;Plano e assinatura&rdquo; — é o mesmo
+          Chave Pix que toda barbearia vê em &ldquo;Plano e assinatura&rdquo; — é a mesma
           para todas. Confira o pagamento recebido e use &ldquo;Liberar acesso&rdquo; acima para
           ativar.
         </p>
       </CardHeader>
       <CardContent>
-        <form onSubmit={handleSubmit} className="flex flex-col gap-4 sm:flex-row sm:items-start">
-          <div className="flex shrink-0 flex-col items-center gap-2">
-            <div className="flex size-36 items-center justify-center overflow-hidden rounded-xl border border-black/10 bg-brand-surface">
-              {preview ? (
-                // eslint-disable-next-line @next/next/no-img-element -- external/storage URL, not a static asset
-                <img src={preview} alt="QR Code Pix" className="size-full object-contain" />
-              ) : (
-                <QrCode className="size-10 text-brand-graphite/30" />
-              )}
-            </div>
-            <label className="cursor-pointer text-xs font-medium text-brand-orange hover:underline">
-              {preview ? "Trocar imagem" : "Enviar QR Code"}
-              <input type="file" accept="image/*" className="hidden" onChange={onFileChange} />
-            </label>
-          </div>
-          <div className="flex min-w-0 flex-1 flex-col gap-3">
-            {error && <Alert variant="error">{error}</Alert>}
-            {saved && !error && <Alert variant="success">Dados de pagamento atualizados.</Alert>}
-            <Input
-              label="Chave Pix"
-              placeholder="CPF, CNPJ, e-mail, telefone ou chave aleatória"
-              value={pixKey}
-              onChange={(e) => {
-                setPixKey(e.target.value);
-                setSaved(false);
-              }}
-            />
-            <Textarea
-              label="Código Pix copia e cola (opcional)"
-              placeholder="O código completo gerado pelo seu banco — cole aqui o texto, não a imagem"
-              hint="Quando preenchido, a barbearia vê um botão pra copiar esse código direto, além do QR Code — ele já inclui o valor certo, então é mais rápido de pagar do que digitar a chave."
-              rows={4}
-              value={copyPasteCode}
-              onChange={(e) => {
-                setCopyPasteCode(e.target.value);
-                setSaved(false);
-              }}
-            />
-            <Button type="submit" loading={submitting} className="self-start">
-              Salvar
-            </Button>
-          </div>
+        <form onSubmit={handleSubmit} className="flex flex-col gap-3 sm:max-w-md">
+          {error && <Alert variant="error">{error}</Alert>}
+          {saved && !error && <Alert variant="success">Dados de pagamento atualizados.</Alert>}
+          <Input
+            label="Chave Pix"
+            placeholder="CPF, CNPJ, e-mail, telefone ou chave aleatória"
+            value={pixKey}
+            onChange={(e) => {
+              setPixKey(e.target.value);
+              setSaved(false);
+            }}
+          />
+          <Button type="submit" loading={submitting} className="self-start">
+            Salvar
+          </Button>
         </form>
       </CardContent>
     </Card>
