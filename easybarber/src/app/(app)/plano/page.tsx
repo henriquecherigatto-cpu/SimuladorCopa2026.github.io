@@ -10,7 +10,6 @@ export default async function PlanoPage() {
   const [
     { data: subscription, error: subError },
     { data: plans, error: plansError },
-    { data: billingEvents, error: billingError },
     { data: pixSettings, error: pixError },
   ] = await Promise.all([
     supabase
@@ -25,12 +24,6 @@ export default async function PlanoPage() {
       .select("id, name, price_cents, features, coming_soon")
       .eq("active", true)
       .order("price_cents", { ascending: true }),
-    supabase
-      .from("billing_events")
-      .select("id, event_type, status, amount_cents, created_at")
-      .eq("company_id", companyId)
-      .order("created_at", { ascending: false })
-      .limit(20),
     // Single platform-wide row, readable by any authenticated user —
     // see pix_payment_settings_read in
     // 20260101000043_manual_pix_payment.sql. Only the key is shown on
@@ -45,7 +38,6 @@ export default async function PlanoPage() {
 
   if (subError) throw subError;
   if (plansError) throw plansError;
-  if (billingError) throw billingError;
   if (pixError) throw pixError;
 
   return (
@@ -53,7 +45,6 @@ export default async function PlanoPage() {
       companyId={companyId}
       subscription={subscription}
       plans={plans ?? []}
-      billingEvents={billingEvents ?? []}
       canManage={role === "owner"}
       pixKey={pixSettings?.pix_key ?? null}
     />
