@@ -9,6 +9,7 @@ import {
   Building2,
   CalendarCheck2,
   CheckCircle2,
+  Download,
   MessageCircle,
   Pencil,
   Search,
@@ -154,15 +155,28 @@ export function AdminPageClient({
       <Card className="min-w-0">
         <CardHeader>
           <CardTitle>Empresas</CardTitle>
-          <div className="relative w-full max-w-[220px]">
-            <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-brand-graphite/40" />
-            <input
-              type="text"
-              placeholder="Buscar empresa..."
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              className="h-10 w-full rounded-xl border border-black/10 bg-white pl-9 pr-3 text-sm text-brand-graphite outline-none focus:border-brand-orange focus:ring-2 focus:ring-brand-orange/20"
-            />
+          <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+            <div className="relative w-full max-w-[220px]">
+              <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-brand-graphite/40" />
+              <input
+                type="text"
+                placeholder="Buscar empresa..."
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                className="h-10 w-full rounded-xl border border-black/10 bg-white pl-9 pr-3 text-sm text-brand-graphite outline-none focus:border-brand-orange focus:ring-2 focus:ring-brand-orange/20"
+              />
+            </div>
+            <Button
+              variant="secondary"
+              size="sm"
+              icon={<Download className="size-4" />}
+              onClick={() => {
+                // eslint-disable-next-line @next/next/no-location-assign-relative-destination -- triggers a file download (Content-Disposition: attachment), not a page navigation; router.push() would try to render the route as a page
+                window.location.href = "/api/admin/export";
+              }}
+            >
+              Exportar Excel
+            </Button>
           </div>
         </CardHeader>
         <CardContent className="p-0">
