@@ -1021,10 +1021,16 @@ export type Database = {
         Returns: {
           appointment_count: number;
           appointments_this_month: number;
+          company_address: string | null;
+          company_cnpj: string | null;
+          company_created_at: string;
           company_id: string;
           company_name: string;
+          company_phone: string | null;
+          company_slug: string;
           customer_count: number;
           next_payment_date: string;
+          owner_email: string | null;
           plan_id: string;
           plan_name: string;
           plan_price_cents: number;

@@ -21,6 +21,12 @@ import { runAction, type ActionResult } from "@/lib/actions/action-result";
 export interface AdminCompanyRow {
   company_id: string;
   company_name: string;
+  company_phone: string | null;
+  company_address: string | null;
+  company_cnpj: string | null;
+  company_slug: string;
+  company_created_at: string;
+  owner_email: string | null;
   plan_id: string | null;
   plan_name: string | null;
   plan_price_cents: number | null;
