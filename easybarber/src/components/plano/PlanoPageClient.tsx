@@ -4,8 +4,7 @@ import * as React from "react";
 import { useRouter } from "next/navigation";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { formatInTimeZone } from "date-fns-tz";
-import { AlertTriangle, Check, Copy, Receipt } from "lucide-react";
+import { AlertTriangle, Check, Copy } from "lucide-react";
 import { PageHeader } from "@/components/PageHeader";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
@@ -15,7 +14,7 @@ import { Modal } from "@/components/ui/Modal";
 import { WhatsAppIcon } from "@/components/icons/WhatsAppIcon";
 import { SUPPORT_WHATSAPP_NUMBER } from "@/components/layout/SupportWhatsAppButton";
 import { useRealtimeTable } from "@/lib/hooks/useRealtimeTable";
-import { APP_TIMEZONE, buildWhatsAppLink, cn, formatCurrencyBRL } from "@/lib/utils";
+import { buildWhatsAppLink, cn, formatCurrencyBRL } from "@/lib/utils";
 
 type SubscriptionStatus = "pendente" | "ativa" | "tolerancia" | "suspensa" | "cancelada";
 
@@ -34,14 +33,6 @@ interface SubscriptionRow {
   plan: PlanRow;
 }
 
-interface BillingEventRow {
-  id: string;
-  event_type: string;
-  status: string;
-  amount_cents: number | null;
-  created_at: string;
-}
-
 const statusLabel: Record<SubscriptionStatus, string> = {
   ativa: "Ativa",
   pendente: "Pendente",
@@ -58,12 +49,6 @@ const statusVariant: Record<SubscriptionStatus, "success" | "warning" | "danger"
   cancelada: "neutral",
 };
 
-const eventLabel: Record<string, { label: string; variant: "success" | "warning" | "danger" | "neutral" }> = {
-  payment_confirmed: { label: "Pagamento confirmado", variant: "success" },
-  payment_overdue: { label: "Pagamento em atraso", variant: "warning" },
-  subscription_canceled: { label: "Assinatura cancelada", variant: "danger" },
-};
-
 function asFeatureList(features: unknown): string[] {
   return Array.isArray(features) ? features.filter((f): f is string => typeof f === "string") : [];
 }
@@ -76,14 +61,12 @@ export function PlanoPageClient({
   companyId,
   subscription,
   plans,
-  billingEvents,
   canManage,
   pixKey,
 }: {
   companyId: string;
   subscription: SubscriptionRow;
   plans: PlanRow[];
-  billingEvents: BillingEventRow[];
   canManage: boolean;
   pixKey: string | null;
 }) {
@@ -96,8 +79,8 @@ export function PlanoPageClient({
   // 20260101000025_admin_subscription_control.sql, built with exactly
   // this flow in mind. This stays subscribed so that the moment the
   // admin does that, this page updates itself (status badge, this Pix
-  // block's visibility, billing history) with no reload — the owner
-  // never has to come back and check manually.
+  // block's visibility) with no reload — the owner never has to come
+  // back and check manually.
   useRealtimeTable("subscriptions", `company_id=eq.${companyId}`, () => router.refresh());
 
   const supportLink = (message: string) => buildWhatsAppLink(SUPPORT_WHATSAPP_NUMBER, message);
@@ -111,7 +94,7 @@ export function PlanoPageClient({
     <div className="flex flex-col gap-5">
       <PageHeader
         title="Plano e assinatura"
-        description="Acompanhe sua assinatura e histórico de pagamentos."
+        description="Acompanhe sua assinatura."
       />
 
       {subscription.status === "tolerancia" && (
@@ -254,47 +237,6 @@ export function PlanoPageClient({
               </div>
             );
           })}
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Histórico de cobranças</CardTitle>
-        </CardHeader>
-        <CardContent className="p-0">
-          {billingEvents.length === 0 ? (
-            <p className="px-5 py-6 text-sm text-brand-graphite/50">
-              Nenhuma cobrança registrada ainda.
-            </p>
-          ) : (
-            <ul className="divide-y divide-black/5">
-              {billingEvents.map((event) => {
-                const { label, variant } = eventLabel[event.event_type] ?? {
-                  label: event.event_type,
-                  variant: "neutral" as const,
-                };
-                return (
-                  <li key={event.id} className="flex items-center gap-3 px-5 py-3.5">
-                    <span className="flex size-9 items-center justify-center rounded-xl bg-brand-surface text-brand-graphite/50">
-                      <Receipt className="size-4" />
-                    </span>
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-medium text-brand-graphite">{label}</p>
-                      <p className="text-xs text-brand-graphite/50">
-                        {formatInTimeZone(event.created_at, APP_TIMEZONE, "dd/MM/yyyy", { locale: ptBR })}
-                      </p>
-                    </div>
-                    {event.amount_cents !== null && (
-                      <span className="text-sm font-semibold text-brand-graphite">
-                        {formatCurrencyBRL(event.amount_cents / 100)}
-                      </span>
-                    )}
-                    <Badge variant={variant}>{label}</Badge>
-                  </li>
-                );
-              })}
-            </ul>
-          )}
         </CardContent>
       </Card>
 

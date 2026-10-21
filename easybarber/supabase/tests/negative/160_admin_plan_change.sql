@@ -11,6 +11,12 @@
 -- files already touch its subscription) — only that the RPC moves it
 -- to a DIFFERENT, named active plan, and that company B's own plan is
 -- untouched by it.
+--
+-- Doesn't assume the commercial catalogue has a second active plan
+-- either (20260101000047_deactivate_profissional_plan.sql left only
+-- Essencial active) — inserts its own throwaway active plan to move
+-- into, so this test's coverage of the success path never depends on
+-- how many real plans happen to be on sale.
 
 select test.act_as_superuser();
 
@@ -19,14 +25,13 @@ from public.subscriptions s
 join public.plans p on p.id = s.plan_id
 where s.company_id = :'company_a_id'::uuid \gset pc_
 
-select id as other_plan_id, name as other_plan_name
-from public.plans
-where active and id <> :'pc_plan_id'::uuid
-limit 1 \gset pc_
+insert into public.plans (name, price_cents, features, active)
+values ('Plano Teste 160', 1000, '[]'::jsonb, true)
+returning id as other_plan_id, name as other_plan_name \gset pc_
 
 select test.assert(
   :'pc_other_plan_id' is not null,
-  'fixture sanity: a second active plan exists for company A to be moved into'
+  'fixture sanity: the throwaway second active plan was inserted for company A to be moved into'
 );
 
 select plan_id as company_b_plan_id_before
